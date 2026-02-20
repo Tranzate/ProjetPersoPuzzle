@@ -7,6 +7,7 @@
 
 #include "Character/Component/InteractComponent.h"
 #include "GPE/InteractibleActor.h"
+#include "UI/InGameHUD.h"
 
 APuzzleCharacter::APuzzleCharacter()
 {
@@ -26,7 +27,7 @@ APuzzleCharacter::APuzzleCharacter()
 
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationPitch = false;
-	bUseControllerRotationRoll = false; 
+	bUseControllerRotationRoll = false;
 
 	//GetCharacterMovement()->bOrientRotationToMovement = false;
 }
@@ -38,7 +39,12 @@ void APuzzleCharacter::BeginPlay()
 
 	playerController = Cast<APlayerController>(GetController());
 	if (playerController)
+	{
 		playerCameraManager = playerController->PlayerCameraManager;
+		AHUD* _hud = playerController->GetHUD();
+		if (_hud)
+			inGameHUD = Cast<AInGameHUD>(_hud);
+	}
 
 	if (playerCameraManager && grabComponent)
 		grabComponent->SetPlayerCameraManager(playerCameraManager);
@@ -71,6 +77,7 @@ void APuzzleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	_input->BindAction(moveAction, ETriggerEvent::Completed, this, &APuzzleCharacter::EndMove);
 	_input->BindAction(lookAction, ETriggerEvent::Triggered, this, &APuzzleCharacter::Look);
 	_input->BindAction(jumpAction, ETriggerEvent::Started, this, &APuzzleCharacter::Jump);
+	_input->BindAction(pauseAction, ETriggerEvent::Started, this, &APuzzleCharacter::OpenPauseMenu);
 
 	_input->BindAction(grabAction, ETriggerEvent::Started, interactComponent.Get(), &UInteractComponent::Interact);
 	_input->BindAction(hookAction, ETriggerEvent::Triggered, hookComponent.Get(), &UHookComponent::StartHookPressed);
@@ -97,7 +104,6 @@ void APuzzleCharacter::Move(const FInputActionValue& _value)
 
 		AddMovementInput(_fwdMovement + _rgtMovement);
 	}
-	
 }
 
 void APuzzleCharacter::StartMove(const FInputActionValue& _value)
@@ -119,6 +125,12 @@ void APuzzleCharacter::Look(const FInputActionValue& _value)
 	//UE_LOG(LogTemp, Warning, TEXT("Your message"));
 	AddControllerYawInput(_rotateValue.X * lookSpeed * GetWorld()->DeltaTimeSeconds);
 	AddControllerPitchInput(-_rotateValue.Y * lookSpeed * GetWorld()->DeltaTimeSeconds);
+}
+
+void APuzzleCharacter::OpenPauseMenu(const FInputActionValue& _value)
+{
+	if (inGameHUD)
+		inGameHUD->TogglePauseMenu();
 }
 
 #pragma endregion

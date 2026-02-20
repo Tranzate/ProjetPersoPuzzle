@@ -14,6 +14,7 @@
 #include "Component/HookComponent.h"
 #include "PuzzleCharacter.generated.h"
 
+class AInGameHUD;
 class UInteractComponent;
 UCLASS()
 class PROJPERSOPUZZLE_API APuzzleCharacter : public ACharacter
@@ -27,6 +28,8 @@ class PROJPERSOPUZZLE_API APuzzleCharacter : public ACharacter
 
 	UPROPERTY(VisibleAnywhere) TObjectPtr<APlayerController> playerController = nullptr;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<APlayerCameraManager> playerCameraManager = nullptr;
+
+	UPROPERTY(VisibleAnywhere) TObjectPtr<AInGameHUD> inGameHUD = nullptr;
 
 	// UPROPERTY(EditAnywhere) float lineTraceDist = 200.f;
 
@@ -58,6 +61,8 @@ class PROJPERSOPUZZLE_API APuzzleCharacter : public ACharacter
 	TObjectPtr<UInputAction> grabAction = nullptr;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> hookAction = nullptr;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> pauseAction = nullptr;
 
 #pragma endregion 
 
@@ -93,7 +98,11 @@ protected:
 	UFUNCTION() void EndMove(const FInputActionValue& _value);
 
 	UFUNCTION() void Look(const FInputActionValue& _value);
-#pragma endregion 
+#pragma endregion
+
+#pragma region UI
+	UFUNCTION() void OpenPauseMenu(const FInputActionValue& _value);
+#pragma endregion
 
 #pragma endregion 
 

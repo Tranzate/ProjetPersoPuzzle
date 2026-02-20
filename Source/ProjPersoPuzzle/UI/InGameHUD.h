@@ -6,6 +6,7 @@
 
 class UInGameWidget;
 class UDebugMenuWidget;
+class UPauseWidget;
 
 UCLASS()
 class PROJPERSOPUZZLE_API AInGameHUD : public AHUD
@@ -16,9 +17,11 @@ public:
 
     
     void ToggleDebugMenu();
+    void TogglePauseMenu();
 
     FORCEINLINE UDebugMenuWidget* GetDebugMenuWidget() const { return debugMenuWidget; }
     FORCEINLINE UInGameWidget* GetInGameWidget() const { return inGameWidget; }
+    FORCEINLINE UPauseWidget* GetPauseWidget() const { return pauseWidget; }
 
 protected:
 
@@ -31,6 +34,9 @@ protected:
 
     UPROPERTY()
     TObjectPtr<UDebugMenuWidget> debugMenuWidget = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<UPauseWidget> pauseWidget = nullptr;
 
 
     virtual void BeginPlay() override;

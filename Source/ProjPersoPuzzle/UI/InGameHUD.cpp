@@ -1,5 +1,6 @@
 #include "InGameHUD.h"
 #include "InGameWidget.h"
+#include "PauseWidget.h"
 #include "UI/DebugMenu/DebugMenuWidget.h"
 #include "Utility.h"
 #include "Blueprint/UserWidget.h"
@@ -16,6 +17,9 @@ void AInGameHUD::BeginPlay()
 			inGameWidget->AddToViewport(0);
 			debugMenuWidget = inGameWidget->GetDebugMenuWidget();
 			debugMenuWidget->SetHudOwner(this);
+			pauseWidget = inGameWidget->GetPauseWidget();
+			pauseWidget->SetHudOwner(this);
+			
 		}
 	}
 }
@@ -29,6 +33,16 @@ void AInGameHUD::ToggleDebugMenu()
 	else if (debugMenuWidget->GetVisibility() == ESlateVisibility::Visible)
 		debugMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
 	
+}
 
+void AInGameHUD::TogglePauseMenu()
+{
+	if (!pauseWidget) return;
 
+	if (pauseWidget->GetIsOpen())
+		pauseWidget->HideMenu();
+	else
+		pauseWidget->ShowMenu();
+	
+	
 }

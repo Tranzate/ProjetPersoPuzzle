@@ -52,6 +52,8 @@ void AMyPlayerController::SetupInputComponent()
         
 	if (menuRightAction)
 		_eIC->BindAction(menuRightAction, ETriggerEvent::Started, this, &AMyPlayerController::MenuRight);
+
+
 }
 
 void AMyPlayerController::ToggleMenu()
