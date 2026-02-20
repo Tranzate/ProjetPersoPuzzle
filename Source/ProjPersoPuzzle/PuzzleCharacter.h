@@ -89,6 +89,8 @@ protected:
 #pragma region Inputs
 #pragma region Movement
 	UFUNCTION() void Move(const FInputActionValue& _value);
+	UFUNCTION() void StartMove(const FInputActionValue& _value);
+	UFUNCTION() void EndMove(const FInputActionValue& _value);
 
 	UFUNCTION() void Look(const FInputActionValue& _value);
 #pragma endregion 
@@ -97,3 +99,4 @@ protected:
 
 
 };
+

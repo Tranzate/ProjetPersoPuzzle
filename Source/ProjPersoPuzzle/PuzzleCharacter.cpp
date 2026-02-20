@@ -47,7 +47,6 @@ void APuzzleCharacter::BeginPlay()
 void APuzzleCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 
@@ -59,7 +58,8 @@ void APuzzleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 	TObjectPtr<ULocalPlayer> _localPlayer = GetWorld()->GetFirstPlayerController()->GetLocalPlayer();
 	if (!_localPlayer) return;
-	TObjectPtr<UEnhancedInputLocalPlayerSubsystem> _inputSystem = _localPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+	TObjectPtr<UEnhancedInputLocalPlayerSubsystem> _inputSystem = _localPlayer->GetSubsystem<
+		UEnhancedInputLocalPlayerSubsystem>();
 	if (!_inputSystem) return;
 	_inputSystem->AddMappingContext(mapping, 0);
 
@@ -67,16 +67,15 @@ void APuzzleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	if (!_input) return;
 
 	_input->BindAction(moveAction, ETriggerEvent::Triggered, this, &APuzzleCharacter::Move);
+	_input->BindAction(moveAction, ETriggerEvent::Started, this, &APuzzleCharacter::StartMove);
+	_input->BindAction(moveAction, ETriggerEvent::Completed, this, &APuzzleCharacter::EndMove);
 	_input->BindAction(lookAction, ETriggerEvent::Triggered, this, &APuzzleCharacter::Look);
 	_input->BindAction(jumpAction, ETriggerEvent::Started, this, &APuzzleCharacter::Jump);
 
 	_input->BindAction(grabAction, ETriggerEvent::Started, interactComponent.Get(), &UInteractComponent::Interact);
 	_input->BindAction(hookAction, ETriggerEvent::Triggered, hookComponent.Get(), &UHookComponent::StartHookPressed);
-	_input->BindAction(hookAction, ETriggerEvent::Completed , hookComponent.Get(), &UHookComponent::OnHookRelease);
-
-
+	_input->BindAction(hookAction, ETriggerEvent::Completed, hookComponent.Get(), &UHookComponent::OnHookRelease);
 }
-
 
 
 #pragma region Movement
@@ -98,7 +97,21 @@ void APuzzleCharacter::Move(const FInputActionValue& _value)
 
 		AddMovementInput(_fwdMovement + _rgtMovement);
 	}
+	
 }
+
+void APuzzleCharacter::StartMove(const FInputActionValue& _value)
+{
+	if (hookComponent)
+		hookComponent->StartMoveOnSwing();
+}
+
+inline void APuzzleCharacter::EndMove(const FInputActionValue& _value)
+{
+	if (hookComponent)
+		hookComponent->EndMoveOnSwing();
+}
+
 
 void APuzzleCharacter::Look(const FInputActionValue& _value)
 {
@@ -106,8 +119,6 @@ void APuzzleCharacter::Look(const FInputActionValue& _value)
 	//UE_LOG(LogTemp, Warning, TEXT("Your message"));
 	AddControllerYawInput(_rotateValue.X * lookSpeed * GetWorld()->DeltaTimeSeconds);
 	AddControllerPitchInput(-_rotateValue.Y * lookSpeed * GetWorld()->DeltaTimeSeconds);
-
-
 }
 
 #pragma endregion
@@ -115,7 +126,6 @@ void APuzzleCharacter::Look(const FInputActionValue& _value)
 
 void APuzzleCharacter::AddMapping()
 {
-	
 	if (APlayerController* _pc = Cast<APlayerController>(GetController()))
 	{
 		if (ULocalPlayer* _lp = _pc->GetLocalPlayer())
@@ -129,7 +139,6 @@ void APuzzleCharacter::AddMapping()
 			}
 		}
 	}
-	
 }
 
 void APuzzleCharacter::RemoveMapping()
