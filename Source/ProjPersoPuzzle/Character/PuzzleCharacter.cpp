@@ -5,6 +5,7 @@
 #include <Kismet/KismetMathLibrary.h>
 #include <Kismet/KismetSystemLibrary.h>
 
+#include "Utility.h"
 #include "Character/Component/InteractComponent.h"
 #include "GPE/InteractibleActor.h"
 #include "UI/InGameHUD.h"
@@ -77,6 +78,7 @@ void APuzzleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	_input->BindAction(moveAction, ETriggerEvent::Completed, this, &APuzzleCharacter::EndMove);
 	_input->BindAction(lookAction, ETriggerEvent::Triggered, this, &APuzzleCharacter::Look);
 	_input->BindAction(jumpAction, ETriggerEvent::Started, this, &APuzzleCharacter::Jump);
+	pauseAction->bTriggerWhenPaused = true;
 	_input->BindAction(pauseAction, ETriggerEvent::Started, this, &APuzzleCharacter::OpenPauseMenu);
 
 	_input->BindAction(grabAction, ETriggerEvent::Started, interactComponent.Get(), &UInteractComponent::Interact);

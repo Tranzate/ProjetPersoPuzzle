@@ -22,19 +22,37 @@ void UPauseWidget::NativeConstruct()
 	SetVisibility(ESlateVisibility::Collapsed);
 }
 
+// void UPauseWidget::ShowMenu()
+// {
+// 	SetVisibility(ESlateVisibility::Visible);
+//
+// 	UWorld* _world = GetWorld();
+// 	if (!_world) return;
+//
+// 	APlayerController* _pc = _world->GetFirstPlayerController();
+// 	if (_pc)
+// 	{
+// 		FInputModeGameAndUI InputMode;
+// 		InputMode.SetWidgetToFocus(this->TakeWidget());
+// 		_pc->SetInputMode(InputMode);
+// 		_pc->bShowMouseCursor = true;
+// 	}
+//
+// 	UGameplayStatics::SetGamePaused(_world, true);
+// }
+
 void UPauseWidget::ShowMenu()
 {
 	SetVisibility(ESlateVisibility::Visible);
-
 	UWorld* _world = GetWorld();
-	if (!_world) return;
-
 	APlayerController* _pc = _world->GetFirstPlayerController();
+
 	if (_pc)
 	{
-		FInputModeGameAndUI InputMode;
-		InputMode.SetWidgetToFocus(this->TakeWidget());
-		_pc->SetInputMode(InputMode);
+		FInputModeGameAndUI _inputMode;
+		_inputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+       
+		_pc->SetInputMode(_inputMode);
 		_pc->bShowMouseCursor = true;
 	}
 
@@ -43,30 +61,25 @@ void UPauseWidget::ShowMenu()
 
 void UPauseWidget::HideMenu()
 {
-	LOG("Hide");
-	UWorld* _world = GetWorld();
-	if (!_world) return;
-
-	APlayerController* _pc = _world->GetFirstPlayerController();
+   
+	APlayerController* _pc = GetWorld()->GetFirstPlayerController();
 	if (_pc)
 	{
-		FInputModeGameOnly InputMode;
-		_pc->SetInputMode(InputMode);
+		FInputModeGameOnly _inputMode;
+		_pc->SetInputMode(_inputMode);
 		_pc->bShowMouseCursor = false;
 	}
 
-	UGameplayStatics::SetGamePaused(_world, false);
+	UGameplayStatics::SetGamePaused(GetWorld(), false);
 	SetVisibility(ESlateVisibility::Collapsed);
 }
 
 void UPauseWidget::OnResumeClicked()
 {
-	LOG("RESUME");
 	HideMenu();
 }
 
 void UPauseWidget::OnQuitClicked()
 {
-	LOG("QUit");
 	UKismetSystemLibrary::QuitGame(this, GetWorld()->GetFirstPlayerController(), EQuitPreference::Quit, false);
 }

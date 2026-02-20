@@ -57,30 +57,10 @@ void ADebugSpectator::Look(const FInputActionValue& Value)
 void ADebugSpectator::Fly(const FInputActionValue& Value)
 {
 	float _value = Value.Get<float>();
-    
-	if (GEngine) {
-		GEngine->AddOnScreenDebugMessage(2, 0.1f, FColor::Cyan, FString::Printf(TEXT("Fly Power: %f"), _value));
-	}
-
 	AddMovementInput(FVector::UpVector, _value);
 }
 
-// void ADebugSpectator::NotifyRestarted()
-// {
-// 	Super::NotifyRestarted();
-//
-// 	if (APlayerController* _pc = Cast<APlayerController>(GetController()))
-// 	{
-// 		if (ULocalPlayer* _lp = _pc->GetLocalPlayer())
-// 		{
-// 			if (UEnhancedInputLocalPlayerSubsystem* _sub = _lp->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-// 			{
-// 				_sub->ClearAllMappings();
-// 				_sub->AddMappingContext(spectatorImc, 10);
-// 			}
-// 		}
-// 	}
-// }
+
 
 void ADebugSpectator::NotifyRestarted()
 {
@@ -92,11 +72,6 @@ void ADebugSpectator::NotifyRestarted()
 		{
 			if (UEnhancedInputLocalPlayerSubsystem* _sub = _lp->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 			{
-				// SURTOUT PAS : _sub->ClearAllMappings(); <--- C'est ça qui tuait ton menu
-             
-				// On ajoute seulement le contexte du spectateur.
-				// Si ton menu utilise un IMC avec une priorité de 11 ou plus, 
-				// il restera prioritaire sur le mouvement.
 				if (spectatorImc)
 				{
 					_sub->AddMappingContext(spectatorImc, 10);

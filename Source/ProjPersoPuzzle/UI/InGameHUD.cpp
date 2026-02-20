@@ -35,14 +35,23 @@ void AInGameHUD::ToggleDebugMenu()
 	
 }
 
+
 void AInGameHUD::TogglePauseMenu()
 {
 	if (!pauseWidget) return;
 
-	if (pauseWidget->GetIsOpen())
+	bool _isPaused = UGameplayStatics::IsGamePaused(GetWorld());
+
+	if (_isPaused) 
+	{
 		pauseWidget->HideMenu();
+	}
 	else
+	{
+		if (!pauseWidget->IsInViewport())
+		{
+			pauseWidget->AddToViewport(10);
+		}
 		pauseWidget->ShowMenu();
-	
-	
+	}
 }
