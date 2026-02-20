@@ -1,7 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PuzzleCharacter.h"
+// #include "PuzzleCharacter.h"
+#include "../../Character/PuzzleCharacter.h"
 #include "Components/TextRenderComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"

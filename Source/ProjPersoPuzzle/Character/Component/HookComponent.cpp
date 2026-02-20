@@ -8,7 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include <NiagaraFunctionLibrary.h>
 #include "NiagaraComponent.h"
-#include "PuzzleCharacter.h"
+#include "Character/PuzzleCharacter.h"
 
 
 

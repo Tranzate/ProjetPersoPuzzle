@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "HookPointSubsystem.h"
-#include "HookPoint.h"
+#include "GPE/HookPoint.h"
 #include "Utility.h"
 
 

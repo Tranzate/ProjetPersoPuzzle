@@ -5,8 +5,8 @@
 #include <Kismet/KismetMathLibrary.h>
 #include <Kismet/KismetSystemLibrary.h>
 
-#include "InteractComponent.h"
-#include "InteractibleActor.h"
+#include "Character/Component/InteractComponent.h"
+#include "GPE/InteractibleActor.h"
 
 APuzzleCharacter::APuzzleCharacter()
 {
@@ -26,7 +26,7 @@ APuzzleCharacter::APuzzleCharacter()
 
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationPitch = false;
-	bUseControllerRotationRoll = false;
+	bUseControllerRotationRoll = false; 
 
 	//GetCharacterMovement()->bOrientRotationToMovement = false;
 }

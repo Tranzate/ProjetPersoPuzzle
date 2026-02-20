@@ -5,8 +5,8 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include <Camera/CameraComponent.h>
-#include "HookPointSubsystem.h"
-#include "HookDataAsset.h"
+#include "SubSystem/HookPointSubsystem.h"
+#include "Character/DataAsset/HookDataAsset.h"
 #include <EnhancedInputSubsystems.h>
 
 #include "HookComponent.generated.h"

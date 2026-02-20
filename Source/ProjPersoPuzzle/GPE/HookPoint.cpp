@@ -2,10 +2,10 @@
 
 
 #include "HookPoint.h"
-#include "HookPointSubsystem.h"
+#include "SubSystem/HookPointSubsystem.h"
 #include "Utility.h"
-#include "HookPointDataAsset.h"
-#include "PuzzleCharacter.h"
+#include "DataAsset/HookPointDataAsset.h"
+#include "Character/PuzzleCharacter.h"
 #include "Kismet/GameplayStatics.h"
 //
 // AHookPoint::AHookPoint()

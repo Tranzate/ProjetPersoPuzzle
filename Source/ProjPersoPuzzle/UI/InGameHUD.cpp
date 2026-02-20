@@ -1,6 +1,6 @@
 #include "InGameHUD.h"
 #include "InGameWidget.h"
-#include "DebugMenuWidget.h"
+#include "UI/DebugMenu/DebugMenuWidget.h"
 #include "Utility.h"
 #include "Blueprint/UserWidget.h"
 

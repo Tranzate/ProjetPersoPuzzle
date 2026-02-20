@@ -1,7 +1,8 @@
 #include "MyPlayerController.h"
 
-#include "DebugMenuWidget.h"
-#include "InGameHUD.h"
+#include "UI/DebugMenu/DebugMenuWidget.h"
+#include "UI/InGameHUD.h"
+
 #include "Utility.h"
 
 

@@ -3,7 +3,7 @@
 
 #include "NodesWorldSubsystem.h"
 
-#include "Node.h"
+#include "GPE/Node/Node.h"
 
 void UNodesWorldSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {

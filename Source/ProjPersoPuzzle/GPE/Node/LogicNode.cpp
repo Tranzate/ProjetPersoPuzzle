@@ -1,5 +1,5 @@
 #include "LogicNode.h"
-#include "ActivableActor.h"
+#include "GPE/ActivableActor.h"
 #include "Utility.h"
 
 ALogicNode::ALogicNode()

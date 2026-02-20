@@ -10,8 +10,8 @@
 #include "EnhancedInputComponent.h"
 #include <EnhancedInputSubsystems.h>
 
-#include "GrabComponent.h"
-#include "HookComponent.h"
+#include "Component/GrabComponent.h"
+#include "Component/HookComponent.h"
 #include "PuzzleCharacter.generated.h"
 
 class UInteractComponent;

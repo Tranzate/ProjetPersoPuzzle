@@ -7,7 +7,7 @@
 #include <Components/CapsuleComponent.h>
 
 #include "InteractComponent.h"
-#include "PuzzleCharacter.h"
+#include "Character/PuzzleCharacter.h"
 #include "Utility.h"
 
 

@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "NiagaraComponent.h"
-#include "HookPoint.h"
+#include "GPE/HookPoint.h"
 #include "HookDataAsset.generated.h"
 
 /**
@@ -39,7 +39,7 @@
 //
 //
 // };
-class UNiagaraComponent; // Juste au cas où
+class UNiagaraComponent;
 
 UCLASS(BlueprintType)
 class UHookDataAsset : public UDataAsset

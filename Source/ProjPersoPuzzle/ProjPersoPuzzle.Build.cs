@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class ProjPersoPuzzle : ModuleRules
 {
@@ -16,6 +17,8 @@ public class ProjPersoPuzzle : ModuleRules
 		{
 			PublicDependencyModuleNames.Add("UnrealEd");
 		}
+		
+		PublicIncludePaths.Add(ModuleDirectory);
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

@@ -1,9 +1,9 @@
 #include "Node.h"
 #include "DrawDebugHelpers.h"
-#include "NodesWorldSubsystem.h"
-#include "InGameHUD.h"
-#include "InGameWidget.h"
-#include "NotificationListWidget.h"
+#include "SubSystem/NodesWorldSubsystem.h"
+#include "UI/InGameHUD.h"
+#include "UI/InGameWidget.h"
+#include "UI/NotificationListWidget.h"
 #include "Utility.h"
 
 ANode::ANode()

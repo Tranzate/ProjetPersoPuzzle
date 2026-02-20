@@ -8,7 +8,6 @@
 
 class AHookPoint;
 
-
 UCLASS(Blueprintable)
 class PROJPERSOPUZZLE_API UHookPointSubsystem : public UWorldSubsystem
 {

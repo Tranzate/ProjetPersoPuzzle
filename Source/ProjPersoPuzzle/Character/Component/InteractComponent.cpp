@@ -1,9 +1,9 @@
 #include "InteractComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "InteractibleActor.h"
+#include "GPE/InteractibleActor.h"
 #include "GrabComponent.h"
-#include "PuzzleCharacter.h"
+#include "Character/PuzzleCharacter.h"
 #include "Utility.h"
 
 UInteractComponent::UInteractComponent()
