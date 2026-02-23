@@ -9,7 +9,19 @@ public class ProjPersoPuzzle : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG",  "SlateCore", "AIModule", "Niagara","RHI", "RenderCore" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core",
+			"CoreUObject",
+			"Engine",
+			"InputCore",
+			"EnhancedInput",
+			"UMG",
+			"SlateCore",
+			"AIModule",
+			"Niagara",
+			"RHI",
+			"RenderCore",
+			"Blutility", 
+			"EditorSubsystem"});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 		

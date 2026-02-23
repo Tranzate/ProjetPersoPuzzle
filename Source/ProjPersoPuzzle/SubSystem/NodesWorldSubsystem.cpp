@@ -60,3 +60,13 @@ void UNodesWorldSubsystem::ShowAllDebugText(const bool _value)
 		nodes[_i]->SetVisibiltyDebugText(_value);
 	}
 }
+
+void UNodesWorldSubsystem::ShowAllDebug(const bool _value)
+{
+	const int _count = nodes.Num();
+	for (int _i = 0; _i <_count; _i++)
+	{
+		nodes[_i]->SetShowDebug(_value);
+	}
+}
+

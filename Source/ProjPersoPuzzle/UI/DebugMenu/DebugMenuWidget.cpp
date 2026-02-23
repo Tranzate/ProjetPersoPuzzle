@@ -275,11 +275,23 @@ void UDebugMenuWidget::InitNodeMenu()
 		_subNode->ShowAllDebugText(true);
 		return FString("Show Debug Text");
 	})));
+	infoHandlers.Add("NODE_SHOWDEBUG", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
+{
+	_subNode->ShowAllDebug(true);
+	return FString("Show Debug");
+})));
+	infoHandlers.Add("NODE_HIDEEBUG", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
+{
+_subNode->ShowAllDebug(false);
+return FString("Hide Debug");
+})));
 
 
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Search by ID ] ", EMenuItemType::Action, "NODE_SEARCH");
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug Text ]", EMenuItemType::Action, "NODE_HIDEDEBUGTEXT");
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug Text ]", EMenuItemType::Action, "NODE_SHOWDEBUGTEXT");
+	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug ]", EMenuItemType::Action, "NODE_SHOWDEBUG");
+	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug ]", EMenuItemType::Action, "NODE_HIDEEBUG");
 
 	// Liste exhaustive des Nodes via le Subsystem
 	if (_subNode)

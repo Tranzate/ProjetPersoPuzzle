@@ -38,6 +38,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void ShowAllDebugText(const bool _value);
+
+	UFUNCTION(BlueprintCallable)
+	void ShowAllDebug(const bool _value);
 };
 
 

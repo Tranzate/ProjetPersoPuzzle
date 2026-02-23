@@ -35,6 +35,12 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Interaction")
 	TObjectPtr<APlayerCameraManager> playerCamera = nullptr;
 
+	UPROPERTY(EditAnywhere, Category = "Interaction")
+	bool textVisible = false;
+
+	UPROPERTY(EditAnywhere, Category = "Interaction")
+	bool textVisibleWhenLook = true;
+
 public:
 	AInteractibleActor();
 

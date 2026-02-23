@@ -1,11 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "ActivableActor.h"
-
 #include "Door.generated.h"
+
 
 UCLASS()
 class PROJPERSOPUZZLE_API ADoor : public AActivableActor
@@ -14,16 +12,17 @@ class PROJPERSOPUZZLE_API ADoor : public AActivableActor
 
 public:
 	ADoor();
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDoorFinishMovement, bool, _targetOpening);
+
+	UPROPERTY(BlueprintAssignable, Category = "Door Events")
+	FOnDoorFinishMovement OnDoorFinishMovement;
+
+	virtual void OnActivate(AActor* _other) override;
+	virtual void OnDeActivate(AActor* _other) override;
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
-
-	virtual void OnActivate(AActor* _other) override;
-	virtual void OnDeActivate(AActor* _other) override;
-	
-
-	float EaseOutBounce(float _x);
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> leftDoor;
@@ -33,18 +32,17 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Door Settings")
 	float maxSlideDistance = 150.0f;
+
 	UPROPERTY(EditAnywhere, Category = "Door Settings")
 	float totalDuration = 1.5f;
-	UPROPERTY(EditAnywhere, Category = "Door Settings")
-	bool targetOpening = false;
-	UPROPERTY(VisibleAnywhere, Category = "Door Settings")
-	float elapsedTime = 0.0f;
 
-	UPROPERTY(EditAnywhere, Category = "Door Settings")
+	bool targetOpening = false;
+	float elapsedTime = 0.0f;
 	bool isMoving = false;
 
-	FVector initialLeftPos = FVector::ZeroVector;
-	FVector initialRightPos = FVector::ZeroVector;
-
+	FVector initialLeftPos;
+	FVector initialRightPos;
 	float currentStartOffset = 0.0f;
+
+	float EaseOutBounce(float x);
 };
