@@ -7,19 +7,23 @@ AElevatorButton::AElevatorButton()
 
 void AElevatorButton::Interact(APuzzleCharacter* _player)
 {
-	if (parentNode)
+	UE_LOG(LogTemp, Warning, TEXT("[ElevatorButton] Interact appele | isCallButton: %s | targetFloor: %s | callFloor: %s | parentNode: %s"),
+		isCallButton ? TEXT("true") : TEXT("false"),
+		*targetFloorName,
+		*callFloorName,
+		parentNode ? TEXT("OK") : TEXT("NULL"));
+
+	if (!parentNode)
 	{
-		if (isCallButton) 
-		{
-			parentNode->OnFloorSelected(callFloorName);
-		} 
-		else 
-		{
-			parentNode->OnFloorSelected(targetFloorName);
-		}
+		UE_LOG(LogTemp, Error, TEXT("[ElevatorButton] ERREUR: parentNode est NULL !"));
+		return;
 	}
+
+	const FString _floor = isCallButton ? callFloorName : targetFloorName;
+	parentNode->OnFloorSelected(_floor);
 }
 
-void AElevatorButton::UpdateText(FString _newText) {
+void AElevatorButton::UpdateText(FString _newText)
+{
 	textToShow->SetText(FText::FromString(_newText));
 }

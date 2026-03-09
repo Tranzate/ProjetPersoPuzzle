@@ -45,4 +45,8 @@ protected:
 	float currentStartOffset = 0.0f;
 
 	float EaseOutBounce(float x);
+
+public:
+	FORCEINLINE TObjectPtr<UStaticMeshComponent> GetLeftDoor() { return leftDoor; }
+	FORCEINLINE TObjectPtr<UStaticMeshComponent> GetRightDoor() { return rightDoor; }
 };

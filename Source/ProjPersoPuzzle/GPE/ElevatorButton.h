@@ -17,17 +17,16 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Elevator")
 	FString targetFloorName;
-
-	UPROPERTY(EditAnywhere, Category = "Elevator")
-	bool isCallButton = false;
 	
 	UPROPERTY(EditAnywhere, Category = "Elevator")
+	bool isCallButton = false;
+
+	UPROPERTY(EditAnywhere, Category = "Elevator", meta = (EditCondition = "isCallButton"))
 	FString callFloorName;
 
 	UPROPERTY(EditAnywhere, Category = "Elevator")
 	ANodeElevator* parentNode;
 
-	void UpdateText(FString NewText);
+	void UpdateText(FString _newText);
 	virtual void Interact(class APuzzleCharacter* _player) override;
-
 };
