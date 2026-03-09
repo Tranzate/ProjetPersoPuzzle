@@ -16,6 +16,7 @@
 
 class AInGameHUD;
 class UInteractComponent;
+
 UCLASS()
 class PROJPERSOPUZZLE_API APuzzleCharacter : public ACharacter
 {
@@ -31,10 +32,6 @@ class PROJPERSOPUZZLE_API APuzzleCharacter : public ACharacter
 
 	UPROPERTY(VisibleAnywhere) TObjectPtr<AInGameHUD> inGameHUD = nullptr;
 
-	// UPROPERTY(EditAnywhere) float lineTraceDist = 200.f;
-
-
-
 	UPROPERTY(EditAnywhere) TObjectPtr<UHookComponent> hookComponent = nullptr;
 
 #pragma region Camera
@@ -43,9 +40,8 @@ class PROJPERSOPUZZLE_API APuzzleCharacter : public ACharacter
 	USceneComponent* cameraRoot;
 
 	UPROPERTY(EditAnywhere) TObjectPtr<UCameraComponent> camera = nullptr;
-	//UPROPERTY(EditAnywhere) TObjectPtr<USpringArmComponent> springArm = nullptr;
 
-#pragma endregion 
+#pragma endregion
 
 #pragma region Inputs
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
@@ -64,14 +60,13 @@ class PROJPERSOPUZZLE_API APuzzleCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> pauseAction = nullptr;
 
-#pragma endregion 
+#pragma endregion
 
 #pragma region Movement
-
-	UPROPERTY(EditAnywhere, Category = "Movement") float moveSpeed = 50.f;
+	
 	UPROPERTY(EditAnywhere, Category = "Movement") float lookSpeed = 50.f;
 
-#pragma endregion 
+#pragma endregion
 
 public:
 
@@ -84,6 +79,7 @@ public:
 	FORCEINLINE TObjectPtr<UGrabComponent> GetGrabComponent() const { return grabComponent; };
 	void AddMapping();
 	void RemoveMapping();
+
 protected:
 
 	virtual void BeginPlay() override;
@@ -104,8 +100,7 @@ protected:
 	UFUNCTION() void OpenPauseMenu(const FInputActionValue& _value);
 #pragma endregion
 
-#pragma endregion 
+#pragma endregion
 
 
 };
-
