@@ -15,7 +15,6 @@
 
 #pragma region INITIALISATION_ET_CYCLE_DE_VIE
 
-
 void UDebugMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -30,7 +29,8 @@ void UDebugMenuWidget::NativeConstruct()
 
 	// Construction de l'arborescence des données du menu
 	InitMenus();
-	// Lancement du timer de mise à jour
+
+	// Lancement du timer de mise à jour des valeurs dynamiques
 	GetWorld()->GetTimerManager().SetTimer(refreshTimerHandle, this, &UDebugMenuWidget::RefreshVisibleMenu, 0.1f, true);
 }
 
@@ -48,16 +48,14 @@ void UDebugMenuWidget::NativeDestruct()
  */
 void UDebugMenuWidget::InitMenus()
 {
-	// Racine du menu
 	rootMenu = NewObject<UDebugMenuItem>(this);
 	rootMenu->Label = "Main Menu";
 	rootMenu->Type = EMenuItemType::SubMenu;
 
-	// Reset du dictionnaire de correspondance Objets/Menus
 	objectToMenuMap.Empty();
 
-	_subNode = GetWorld()->GetSubsystem<UNodesWorldSubsystem>();
-	// --- CONSTRUCTION DES BRANCHES ---
+	subNode = GetWorld()->GetSubsystem<UNodesWorldSubsystem>();
+
 	InitSystemMenu();
 	InitPlayerMenu();
 	InitPlayerMovementMenu();
@@ -65,13 +63,35 @@ void UDebugMenuWidget::InitMenus()
 	InitWaypointMenu();
 	InitNodeMenu();
 
-	// Initialisation de la navigation
 	menuStack.Empty();
 	menuStack.Push(rootMenu);
 
 	LabelText->SetText(FText::FromString(rootMenu->Label));
 	UpdateMenuVisuals();
 	OnMenuUpdated();
+}
+
+#pragma endregion
+
+#pragma region HELPERS_SAVE
+
+/**
+ * @summary Charge le save des waypoints depuis le disque. Retourne nullptr si inexistant.
+ */
+UDebugMenuSaveGame* UDebugMenuWidget::LoadWaypointSave() const
+{
+	return Cast<UDebugMenuSaveGame>(UGameplayStatics::LoadGameFromSlot("DebugWaypoints", 0));
+}
+
+/**
+ * @summary Charge ou crée le save des waypoints.
+ */
+UDebugMenuSaveGame* UDebugMenuWidget::LoadOrCreateWaypointSave() const
+{
+	UDebugMenuSaveGame* _save = LoadWaypointSave();
+	if (!_save)
+		_save = Cast<UDebugMenuSaveGame>(UGameplayStatics::CreateSaveGameObject(UDebugMenuSaveGame::StaticClass()));
+	return _save;
 }
 
 #pragma endregion
@@ -90,11 +110,8 @@ void UDebugMenuWidget::StartSearch(TArray<UObject*> _pool, TFunction<bool(UObjec
 	currentSearchFilter = _filter;
 	currentResultBuilder = _customMenuBuilder;
 
-	// Création de la TextBox
 	UTextBoxUserWidget* _textBox = CreateWidget<UTextBoxUserWidget>(this, textBoxClass);
 	_textBox->AddToViewport();
-
-	// On lie la validation du texte à la fonction d'exécution
 	_textBox->OnNameValidated.AddDynamic(this, &UDebugMenuWidget::ExecuteUniversalSearch);
 }
 
@@ -122,11 +139,9 @@ void UDebugMenuWidget::ExecuteUniversalSearch(FString _searchText)
 			FString _name = _obj->GetName();
 			if (AActor* _actor = Cast<AActor>(_obj)) _name = _actor->GetName();
 
-			// Création de l'item résultat
 			FName _objTag = FName(*FString::Printf(TEXT("RES_%p"), _obj));
 			UDebugMenuItem* _objItem = AddItemToMenu(_resultsMenu->SubItems, _name, EMenuItemType::SubMenu, _objTag);
 
-			// On utilise le builder
 			if (currentResultBuilder && IsValid(_obj))
 			{
 				currentResultBuilder(_obj, _objItem);
@@ -134,14 +149,15 @@ void UDebugMenuWidget::ExecuteUniversalSearch(FString _searchText)
 		}
 	}
 
-	// Affichage des résultats si trouvés
+	auto _notifWidget = hudOwner && hudOwner->GetInGameWidget()
+		? hudOwner->GetInGameWidget()->GetNotificationListWidget()
+		: nullptr;
+
 	if (_resultsMenu->SubItems.Num() > 0)
 	{
-		FString _errorMsg = FString::Printf(TEXT("%d Results"), _resultsMenu->SubItems.Num());
-		if (hudOwner && hudOwner->GetInGameWidget())
-		{
-			hudOwner->GetInGameWidget()->GetNotificationListWidget()->AddNotification(_errorMsg);
-		}
+		if (_notifWidget)
+			_notifWidget->AddNotification(FString::Printf(TEXT("%d Results"), _resultsMenu->SubItems.Num()));
+
 		menuStack.Push(_resultsMenu);
 		currentIndex = 0;
 		firstVisibleIndex = 0;
@@ -151,11 +167,8 @@ void UDebugMenuWidget::ExecuteUniversalSearch(FString _searchText)
 	}
 	else
 	{
-		FString _errorMsg = FString::Printf(TEXT("No results found for : %s"), *_searchText);
-		if (hudOwner && hudOwner->GetInGameWidget())
-		{
-			hudOwner->GetInGameWidget()->GetNotificationListWidget()->AddNotification(_errorMsg);
-		}
+		if (_notifWidget)
+			_notifWidget->AddNotification(FString::Printf(TEXT("No results found for: %s"), *_searchText));
 	}
 
 	GetWorld()->GetTimerManager().UnPauseTimer(refreshTimerHandle);
@@ -169,16 +182,13 @@ void UDebugMenuWidget::InitSystemMenu()
 {
 	systemSubMenu = AddItemToMenu(rootMenu->SubItems, "System", EMenuItemType::SubMenu, "SYSTEM_TAG");
 
-	infoHandlers.Add(
-		"SYS_FPS", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::GetFPS)));
-	infoHandlers.Add(
-		"SYS_RAM", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::GetMemoryUsage)));
-	infoHandlers.
-		Add("SYS_NC", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::NoClip)));
+	infoHandlers.Add("SYS_FPS", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::GetFPS)));
+	infoHandlers.Add("SYS_RAM", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::GetMemoryUsage)));
+	infoHandlers.Add("SYS_NC",  FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::NoClip)));
 
 	AddItemToMenu(systemSubMenu->SubItems, "Performance", EMenuItemType::DisplayOnly, "SYS_FPS");
-	AddItemToMenu(systemSubMenu->SubItems, "Memory", EMenuItemType::DisplayOnly, "SYS_RAM");
-	AddItemToMenu(systemSubMenu->SubItems, "NoClip", EMenuItemType::Toggle, "SYS_NC");
+	AddItemToMenu(systemSubMenu->SubItems, "Memory",      EMenuItemType::DisplayOnly, "SYS_RAM");
+	AddItemToMenu(systemSubMenu->SubItems, "NoClip",      EMenuItemType::Toggle,      "SYS_NC");
 }
 
 void UDebugMenuWidget::InitPlayerMenu()
@@ -187,7 +197,7 @@ void UDebugMenuWidget::InitPlayerMenu()
 
 	infoHandlers.Add("PL_LOC", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
-		return player ? player->GetActorLocation().ToCompactString() : "N/A";
+		return player ? player->GetActorLocation().ToCompactString() : FString("N/A");
 	})));
 
 	AddItemToMenu(playerSubMenu->SubItems, "Location", EMenuItemType::DisplayOnly, "PL_LOC");
@@ -199,48 +209,47 @@ void UDebugMenuWidget::InitPlayerMovementMenu()
 
 	infoHandlers.Add("PM_Acc", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
-		return playerMovement ? FString::SanitizeFloat(playerMovement->MaxAcceleration) : "N/A";
+		return playerMovement ? FString::SanitizeFloat(playerMovement->MaxAcceleration) : FString("N/A");
 	})));
 	infoHandlers.Add("PM_Speed", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
-		return player ? FString::Printf(TEXT("%.2f cm/s"), player->GetVelocity().Size()) : "N/A";
+		return player ? FString::Printf(TEXT("%.2f cm/s"), player->GetVelocity().Size()) : FString("N/A");
 	})));
 	infoHandlers.Add("PM_Mode", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
 		if (!playerMovement) return FString("N/A");
-		const UEnum* EnumPtr = StaticEnum<EMovementMode>();
-		return EnumPtr ? EnumPtr->GetNameStringByValue(playerMovement->MovementMode) : FString("Error");
+		const UEnum* _enumPtr = StaticEnum<EMovementMode>();
+		return _enumPtr ? _enumPtr->GetNameStringByValue(playerMovement->MovementMode) : FString("Error");
 	})));
 	infoHandlers.Add("PM_Grav", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
-		return playerMovement ? FString::SanitizeFloat(playerMovement->GravityScale) : "N/A";
+		return playerMovement ? FString::SanitizeFloat(playerMovement->GravityScale) : FString("N/A");
 	})));
 
-	AddItemToMenu(playerMovementSubMenu->SubItems, "Acceleration", EMenuItemType::DisplayOnly, "PM_Acc");
-	AddItemToMenu(playerMovementSubMenu->SubItems, "Current Speed", EMenuItemType::DisplayOnly, "PM_Speed");
-	AddItemToMenu(playerMovementSubMenu->SubItems, "Movement Mode", EMenuItemType::DisplayOnly, "PM_Mode");
-	AddItemToMenu(playerMovementSubMenu->SubItems, "Gravity Scale", EMenuItemType::DisplayOnly, "PM_Grav");
+	AddItemToMenu(playerMovementSubMenu->SubItems, "Acceleration",   EMenuItemType::DisplayOnly, "PM_Acc");
+	AddItemToMenu(playerMovementSubMenu->SubItems, "Current Speed",  EMenuItemType::DisplayOnly, "PM_Speed");
+	AddItemToMenu(playerMovementSubMenu->SubItems, "Movement Mode",  EMenuItemType::DisplayOnly, "PM_Mode");
+	AddItemToMenu(playerMovementSubMenu->SubItems, "Gravity Scale",  EMenuItemType::DisplayOnly, "PM_Grav");
 }
 
 void UDebugMenuWidget::InitCameraMenu()
 {
 	cameraSubMenu = AddItemToMenu(playerSubMenu->SubItems, "Camera", EMenuItemType::SubMenu, "CAM_TAG");
-	infoHandlers.Add(
-		"CAM_FOV", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::GetCameraFov)));
+	infoHandlers.Add("CAM_FOV", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::GetCameraFov)));
 	AddItemToMenu(cameraSubMenu->SubItems, "Field of View", EMenuItemType::DisplayOnly, "CAM_FOV");
 }
 
 void UDebugMenuWidget::InitWaypointMenu()
 {
 	waypointSubMenu = AddItemToMenu(rootMenu->SubItems, "Waypoints", EMenuItemType::SubMenu, "WP_TAG");
-	RefreshWaypointMenu(); // Remplissage dynamique à partir de la sauvegarde
+	RefreshWaypointMenu();
 }
 
 void UDebugMenuWidget::InitNodeMenu()
 {
 	nodeSubMenu = AddItemToMenu(rootMenu->SubItems, "Nodes", EMenuItemType::SubMenu, "NODE_TAG");
 
-	// Action de Recherche de Node par ID
+	// Recherche de Node par ID
 	infoHandlers.Add("NODE_SEARCH", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
 		TArray<UObject*> _pool;
@@ -256,7 +265,6 @@ void UDebugMenuWidget::InitNodeMenu()
 		{
 			if (objectToMenuMap.Contains(_obj))
 			{
-				// Réutilisation directe des sous-items déjà construits
 				_resultMenuItem->SubItems = objectToMenuMap[_obj]->SubItems;
 			}
 		};
@@ -267,42 +275,39 @@ void UDebugMenuWidget::InitNodeMenu()
 
 	infoHandlers.Add("NODE_HIDEDEBUGTEXT", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
-		_subNode->ShowAllDebugText(false);
-		return FString("Hide Debug Text");
+		if (subNode) subNode->ShowAllDebugText(false);
+		return FString("Debug Text Hidden");
 	})));
 	infoHandlers.Add("NODE_SHOWDEBUGTEXT", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
-		_subNode->ShowAllDebugText(true);
-		return FString("Show Debug Text");
+		if (subNode) subNode->ShowAllDebugText(true);
+		return FString("Debug Text Shown");
 	})));
 	infoHandlers.Add("NODE_SHOWDEBUG", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
-{
-	_subNode->ShowAllDebug(true);
-	return FString("Show Debug");
-})));
-	infoHandlers.Add("NODE_HIDEEBUG", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
-{
-_subNode->ShowAllDebug(false);
-return FString("Hide Debug");
-})));
-
-
-	AddItemToMenu(nodeSubMenu->SubItems, " [ Search by ID ] ", EMenuItemType::Action, "NODE_SEARCH");
-	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug Text ]", EMenuItemType::Action, "NODE_HIDEDEBUGTEXT");
-	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug Text ]", EMenuItemType::Action, "NODE_SHOWDEBUGTEXT");
-	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug ]", EMenuItemType::Action, "NODE_SHOWDEBUG");
-	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug ]", EMenuItemType::Action, "NODE_HIDEEBUG");
-
-	// Liste exhaustive des Nodes via le Subsystem
-	if (_subNode)
 	{
-		for (ANode* _node : _subNode->GetAllNodes())
+		if (subNode) subNode->ShowAllDebug(true);
+		return FString("Debug Shown");
+	})));
+	infoHandlers.Add("NODE_HIDEDEBUG", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
+	{
+		if (subNode) subNode->ShowAllDebug(false);
+		return FString("Debug Hidden");
+	})));
+
+	AddItemToMenu(nodeSubMenu->SubItems, " [ Search by ID ] ",    EMenuItemType::Action, "NODE_SEARCH");
+	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug Text ]",  EMenuItemType::Action, "NODE_HIDEDEBUGTEXT");
+	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug Text ]",  EMenuItemType::Action, "NODE_SHOWDEBUGTEXT");
+	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug ]",       EMenuItemType::Action, "NODE_SHOWDEBUG");
+	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug ]",       EMenuItemType::Action, "NODE_HIDEDEBUG");
+
+	if (subNode)
+	{
+		for (ANode* _node : subNode->GetAllNodes())
 		{
 			if (!_node) continue;
 			FName _nodeTag = FName(*FString::Printf(TEXT("NODE_SUB_%p"), _node));
-			UDebugMenuItem* _indivMenu = AddItemToMenu(nodeSubMenu->SubItems, _node->GetNameID(), EMenuItemType::SubMenu,
-			                                          _nodeTag);
-
+			UDebugMenuItem* _indivMenu = AddItemToMenu(nodeSubMenu->SubItems, _node->GetNameID(),
+			                                           EMenuItemType::SubMenu, _nodeTag);
 			objectToMenuMap.Add(_node, _indivMenu);
 			BuildNodeMenu(_node, _indivMenu);
 		}
@@ -310,116 +315,114 @@ return FString("Hide Debug");
 }
 
 /**
- * @summary Définit les actions possibles pour un Node (TP, Info).
+ * @summary Définit les actions possibles pour un Node (TP, Info, Debug, ForceActivate...).
+ *      pour éviter les crashes si l'objet est détruit avant l'appel du delegate.
  */
 void UDebugMenuWidget::BuildNodeMenu(ANode* _node, UDebugMenuItem* _targetMenuItem)
 {
 	if (!_node || !_targetMenuItem) return;
 
-	// On utilise l'adresse mémoire du node pour garantir l'unicité du tag
 	FString _addressKey = FString::Printf(TEXT("%p"), _node);
-	FName _infoTag = FName(*(TEXT("NODE_INFO_") + _addressKey));
-	FName _tpTag = FName(*(TEXT("NODE_TP_") + _addressKey));
-	FName _debugTag = FName(*(TEXT("NODE_DEBUG_") + _addressKey));
-	FName _debugNameTag = FName(*(TEXT("NODE_DEBUGNAME_") + _addressKey));
-	FName _selectTag = FName(*(TEXT("NODE_SELECT_") + _addressKey));
-	FName _forceActivateTag = FName(*(TEXT("NODE_FORCEACTIVATE_") + _addressKey));
-	FName _forceDeActivateTag = FName(*(TEXT("NODE_FORCEDEACTIVATE_") + _addressKey));
-
+	FName _infoTag          = FName(*(TEXT("NODE_INFO_")         + _addressKey));
+	FName _tpTag            = FName(*(TEXT("NODE_TP_")           + _addressKey));
+	FName _debugTag         = FName(*(TEXT("NODE_DEBUG_")        + _addressKey));
+	FName _debugNameTag     = FName(*(TEXT("NODE_DEBUGNAME_")    + _addressKey));
+	FName _selectTag        = FName(*(TEXT("NODE_SELECT_")       + _addressKey));
+	FName _forceActivateTag = FName(*(TEXT("NODE_FORCEACTIVATE_")+ _addressKey));
+	FName _forceDeActTag    = FName(*(TEXT("NODE_FORCEDEACT_")   + _addressKey));
+	
+	TWeakObjectPtr<ANode> _weakNode = _node;
 
 	// Informations
-	infoHandlers.FindOrAdd(_infoTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_node]()
+	infoHandlers.FindOrAdd(_infoTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weakNode]()
 	{
+		if (!_weakNode.IsValid()) return FString("Node destroyed");
 		return FString::Printf(
-			TEXT("ID: %d | Debug: %s | DebugText: %s"), _node->GetId(),
-			_node->GetShowDebug() ? TEXT("ON") : TEXT("OFF"),
-			_node->GetVisibiltyDebugText() ? TEXT("ON") : TEXT("OFF"));
+			TEXT("ID: %d | Debug: %s | DebugText: %s"),
+			_weakNode->GetId(),
+			_weakNode->GetShowDebug() ? TEXT("ON") : TEXT("OFF"),
+			_weakNode->GetVisibiltyDebugText() ? TEXT("ON") : TEXT("OFF"));
 	}));
 
-	//Teleportation
-	infoHandlers.FindOrAdd(_tpTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _node]()
+	// Téléportation
+	infoHandlers.FindOrAdd(_tpTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _weakNode]()
 	{
-		if (player) player->SetActorLocation(_node->GetActorLocation());
+		if (!_weakNode.IsValid()) return FString("Node destroyed");
+		if (player) player->SetActorLocation(_weakNode->GetActorLocation());
 		return FString("Teleported");
 	}));
 
-	// Afficher Debug
-	infoHandlers.FindOrAdd(_debugTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _node]()
+	// Toggle debug visuel
+	infoHandlers.FindOrAdd(_debugTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _weakNode]()
 	{
-		if (IsValid(_node))
-		{
-			_node->SetShowDebug(!_node->GetShowDebug());
-			UpdateMenuVisuals(); // Pour rafraîchir le texte ON/OFF immédiatement
-		}
+		if (!_weakNode.IsValid()) return FString("Node destroyed");
+		_weakNode->SetShowDebug(!_weakNode->GetShowDebug());
+		UpdateMenuVisuals();
 		return FString("");
 	}));
 
-	infoHandlers.FindOrAdd(_debugNameTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _node]()
+	// Toggle nom debug
+	infoHandlers.FindOrAdd(_debugNameTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _weakNode]()
 	{
-		if (IsValid(_node))
-		{
-			_node->ToogleShowDebugText();
-			UpdateMenuVisuals(); // Pour rafraîchir le texte ON/OFF immédiatement
-		}
+		if (!_weakNode.IsValid()) return FString("Node destroyed");
+		_weakNode->ToogleShowDebugText();
+		UpdateMenuVisuals();
 		return FString("");
 	}));
 
-	infoHandlers.FindOrAdd(_selectTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_node]()
+	// Sélection dans l'Outliner (Editor uniquement)
+	infoHandlers.FindOrAdd(_selectTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weakNode]()
 	{
 #if WITH_EDITOR
-		if (GIsEditor && IsValid(_node))
+		if (GIsEditor && _weakNode.IsValid())
 		{
-			// On vide la sélection actuelle
 			GEditor->SelectNone(true, true, false);
-
-			// On sélectionne notre node
-			GEditor->SelectActor(_node, true, true);
-
-			// On force le focus de l'Outliner sur l'objet 
+			GEditor->SelectActor(_weakNode.Get(), true, true);
 			GEditor->NoteSelectionChange();
-
 			return FString("Selected in Outliner");
 		}
 #endif
 		return FString("Selection only works in Editor");
 	}));
 
-	// Force l'activation
-	infoHandlers.FindOrAdd(_forceActivateTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_node]()
+	// Force activation
+	infoHandlers.FindOrAdd(_forceActivateTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weakNode]()
 	{
-		_node->ForceActivate();
+		if (!_weakNode.IsValid()) return FString("Node destroyed");
+		_weakNode->ForceActivate();
 		return FString("Forced To Activate");
 	}));
 
-	// Force la desactivation
-	infoHandlers.FindOrAdd(_forceDeActivateTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_node]()
+	// Force désactivation
+	infoHandlers.FindOrAdd(_forceDeActTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weakNode]()
 	{
-		_node->ForceDeActivate();
+		if (!_weakNode.IsValid()) return FString("Node destroyed");
+		_weakNode->ForceDeActivate();
 		return FString("Forced To DeActivate");
 	}));
 
-	// Menu pour la liste des activateurs
+	// Sous-menu liste des activateurs
 	FName _activatorSubMenuTag = FName(*FString::Printf(TEXT("NODE_ACT_LIST_%p"), _node));
 	UDebugMenuItem* _activatorListMenu = AddItemToMenu(_targetMenuItem->SubItems, ">> Activators List <<",
-	                                                  EMenuItemType::SubMenu, _activatorSubMenuTag);
-
-	// On appelle la fonction pour remplir ce sous-menu
+	                                                   EMenuItemType::SubMenu, _activatorSubMenuTag);
 	BuildActivatorListMenu(_node, _activatorListMenu);
 
-	// On ajoute les items
-	AddItemToMenu(_targetMenuItem->SubItems, "Status", EMenuItemType::DisplayOnly, _infoTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Teleport", EMenuItemType::Action, _tpTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Toggle Debug", EMenuItemType::Action, _debugTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Toggle Names", EMenuItemType::Action, _debugNameTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Select in Outliner", EMenuItemType::Action, _selectTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Force Activate", EMenuItemType::Action, _forceActivateTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Force DeActivete", EMenuItemType::Action, _forceDeActivateTag);
+	AddItemToMenu(_targetMenuItem->SubItems, "Status",             EMenuItemType::DisplayOnly, _infoTag);
+	AddItemToMenu(_targetMenuItem->SubItems, "Teleport",           EMenuItemType::Action,      _tpTag);
+	AddItemToMenu(_targetMenuItem->SubItems, "Toggle Debug",       EMenuItemType::Action,      _debugTag);
+	AddItemToMenu(_targetMenuItem->SubItems, "Toggle Names",       EMenuItemType::Action,      _debugNameTag);
+	AddItemToMenu(_targetMenuItem->SubItems, "Select in Outliner", EMenuItemType::Action,      _selectTag);
+	AddItemToMenu(_targetMenuItem->SubItems, "Force Activate",     EMenuItemType::Action,      _forceActivateTag);
+	AddItemToMenu(_targetMenuItem->SubItems, "Force DeActivate",   EMenuItemType::Action,      _forceDeActTag);
 }
 
+/**
+ * @summary Construit le sous-menu listant les acteurs activateurs d'un Node.
+ */
 void UDebugMenuWidget::BuildActivatorListMenu(ANode* _node, UDebugMenuItem* _targetMenuItem)
 {
 	if (!_node || !_targetMenuItem) return;
-	
+
 	const TArray<AActor*>& _activatorList = _node->GetAllActorToList();
 
 	if (_activatorList.Num() == 0)
@@ -432,37 +435,32 @@ void UDebugMenuWidget::BuildActivatorListMenu(ANode* _node, UDebugMenuItem* _tar
 	{
 		if (!IsValid(_actor)) continue;
 
-		// On génère une clé unique basée sur l'adresse du Node ET de l'Acteur
 		FString _uniqueKey = FString::Printf(TEXT("%p_%p"), _node, _actor);
-
-		FName _actSubTag = FName(*(TEXT("ACT_SUB_") + _uniqueKey));
-		FName _actTpTag = FName(*(TEXT("ACT_TP_") + _uniqueKey));
+		FName _actSubTag    = FName(*(TEXT("ACT_SUB_")    + _uniqueKey));
+		FName _actTpTag     = FName(*(TEXT("ACT_TP_")     + _uniqueKey));
 		FName _actSelectTag = FName(*(TEXT("ACT_SELECT_") + _uniqueKey));
 
-		// Créer le sous-menu pour CET acteur précis
 		FString _actorLabel = FString::Printf(TEXT("[%s]"), *_actor->GetName());
-		UDebugMenuItem* ActorEntry = AddItemToMenu(_targetMenuItem->SubItems, _actorLabel, EMenuItemType::SubMenu,
-		                                           _actSubTag);
+		UDebugMenuItem* _actorEntry = AddItemToMenu(_targetMenuItem->SubItems, _actorLabel,
+		                                            EMenuItemType::SubMenu, _actSubTag);
+		
+		TWeakObjectPtr<AActor> _weakActor = _actor;
 
-		//  Teleport vers l'Acteur
-		infoHandlers.FindOrAdd(_actTpTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _actor]()
+		infoHandlers.FindOrAdd(_actTpTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _weakActor]()
 		{
-			if (player && IsValid(_actor))
-			{
-				player->SetActorLocation(_actor->GetActorLocation() + FVector(0, 0, 90));
-				return FString::Printf(TEXT("TP to %s"), *_actor->GetName());
-			}
-			return FString("Error: Actor Invalid");
+			if (!_weakActor.IsValid()) return FString("Error: Actor destroyed");
+			if (player)
+				player->SetActorLocation(_weakActor->GetActorLocation() + FVector(0, 0, 90));
+			return FString::Printf(TEXT("TP to %s"), *_weakActor->GetName());
 		}));
 
-		// Sélection dans l'Outliner
-		infoHandlers.FindOrAdd(_actSelectTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_actor]()
+		infoHandlers.FindOrAdd(_actSelectTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weakActor]()
 		{
 #if WITH_EDITOR
-			if (GIsEditor && IsValid(_actor))
+			if (GIsEditor && _weakActor.IsValid())
 			{
 				GEditor->SelectNone(true, true, false);
-				GEditor->SelectActor(_actor, true, true);
+				GEditor->SelectActor(_weakActor.Get(), true, true);
 				GEditor->NoteSelectionChange();
 				return FString("Selected in Outliner");
 			}
@@ -470,9 +468,8 @@ void UDebugMenuWidget::BuildActivatorListMenu(ANode* _node, UDebugMenuItem* _tar
 			return FString("Editor only");
 		}));
 
-		// Ajouter les actions au sous-menu de l'acteur
-		AddItemToMenu(ActorEntry->SubItems, "Teleport to Actor", EMenuItemType::Action, _actTpTag);
-		AddItemToMenu(ActorEntry->SubItems, "Select in Outliner", EMenuItemType::Action, _actSelectTag);
+		AddItemToMenu(_actorEntry->SubItems, "Teleport to Actor",  EMenuItemType::Action, _actTpTag);
+		AddItemToMenu(_actorEntry->SubItems, "Select in Outliner", EMenuItemType::Action, _actSelectTag);
 	}
 }
 
@@ -488,7 +485,7 @@ void UDebugMenuWidget::RefreshWaypointMenu()
 	if (!waypointSubMenu) return;
 	waypointSubMenu->SubItems.Empty();
 
-	// Option : Sauvegarder la position actuelle
+	// Sauvegarder la position actuelle
 	infoHandlers.FindOrAdd("SaveWP") = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
 		if (!textBoxClass) return FString("Class Null");
@@ -498,17 +495,16 @@ void UDebugMenuWidget::RefreshWaypointMenu()
 			_tb->AddToViewport();
 			_tb->OnNameValidated.AddDynamic(this, &UDebugMenuWidget::SaveCurrentLocation);
 		}
-		return FString("Saved Waypoint");
+		return FString("Enter waypoint name...");
 	}));
 	AddItemToMenu(waypointSubMenu->SubItems, "Save New Position", EMenuItemType::Action, "SaveWP");
 
-	// Option : Tout supprimer
+	// Tout supprimer
 	infoHandlers.FindOrAdd("DeleteAllWP") = FHandlerMenuDebug(
 		FGetDebugInfoDelegate::CreateUObject(this, &UDebugMenuWidget::DeleteAllWaypoint));
 	AddItemToMenu(waypointSubMenu->SubItems, "Delete All", EMenuItemType::Action, "DeleteAllWP");
-
-	// Itération sur la sauvegarde
-	UDebugMenuSaveGame* _save = Cast<UDebugMenuSaveGame>(UGameplayStatics::LoadGameFromSlot("DebugWaypoints", 0));
+	
+	UDebugMenuSaveGame* _save = LoadWaypointSave();
 	if (_save)
 	{
 		for (int _i = 0; _i < _save->savedWaypoints.Num(); _i++)
@@ -516,25 +512,30 @@ void UDebugMenuWidget::RefreshWaypointMenu()
 			const FWaypointData& _wp = _save->savedWaypoints[_i];
 			FName _baseTag = FName(*_wp.name);
 
-			// Action TP (Index 0)
-			FName _tpTag = FName(*(_baseTag.ToString() + "_0"));
+			FName _tpTag  = FName(*(_baseTag.ToString() + "_0"));
+			FName _delTag = FName(*(_baseTag.ToString() + "_1"));
+
 			infoHandlers.FindOrAdd(_tpTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _wp]()
 			{
-				if (player) player->SetActorLocation(_wp.location);
-				return "Teleport to " + _wp.name;
+				if (player)
+				{
+					player->SetActorLocation(_wp.location);
+					if (AController* _ctrl = player->GetController())
+						_ctrl->SetControlRotation(_wp.rotation);
+				}
+				return FString("Teleport to ") + _wp.name;
 			}));
 
-			// Action Suppr (Index 1)
-			FName _delTag = FName(*(_baseTag.ToString() + "_1"));
 			infoHandlers.FindOrAdd(_delTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this, _i, _wp]()
 			{
 				DeleteWaypoint(_i);
-				return FString("Delete " + _wp.name);
+				return FString("Delete ") + _wp.name;
 			}));
 
 			AddItemToMenu(waypointSubMenu->SubItems, _wp.name, EMenuItemType::Action, _baseTag, {"TP", "Suppr"});
 		}
 	}
+
 	if (menuStack.Num() > 0 && menuStack.Last() == waypointSubMenu)
 	{
 		UpdateMenuVisuals();
@@ -542,35 +543,39 @@ void UDebugMenuWidget::RefreshWaypointMenu()
 	OnMenuUpdated();
 }
 
+/**
+ * @summary Supprime un waypoint par index.
+ */
 void UDebugMenuWidget::DeleteWaypoint(int _index)
 {
-	UDebugMenuSaveGame* _save = Cast<UDebugMenuSaveGame>(UGameplayStatics::LoadGameFromSlot("DebugWaypoints", 0));
+	UDebugMenuSaveGame* _save = LoadWaypointSave();
 	if (_save && _save->savedWaypoints.IsValidIndex(_index))
 	{
 		_save->savedWaypoints.RemoveAt(_index);
 		UGameplayStatics::SaveGameToSlot(_save, "DebugWaypoints", 0);
 
-		// Recalcul de l'index pour éviter de pointer hors tableau
-		int32 NewTotal = waypointSubMenu->SubItems.Num();
-		if (currentIndex >= NewTotal && NewTotal > 0)
-		{
-			currentIndex = NewTotal - 1;
-		}
+		int32 _newTotal = waypointSubMenu->SubItems.Num();
+		if (currentIndex >= _newTotal && _newTotal > 0)
+			currentIndex = _newTotal - 1;
 
+		// RefreshWaypointMenu fait sa propre lecture — pas de double chargement ici
 		RefreshWaypointMenu();
 	}
 }
 
 void UDebugMenuWidget::SaveCurrentLocation(FString _name)
 {
-	UDebugMenuSaveGame* _save = Cast<UDebugMenuSaveGame>(UGameplayStatics::LoadGameFromSlot("DebugWaypoints", 0));
-	if (!_save)
-		_save = Cast<UDebugMenuSaveGame>(
-			UGameplayStatics::CreateSaveGameObject(UDebugMenuSaveGame::StaticClass()));
+	UDebugMenuSaveGame* _save = LoadOrCreateWaypointSave();
+	if (!_save) return;
 
 	FWaypointData _newWP;
 	_newWP.name = _name;
-	if (player) _newWP.location = player->GetActorLocation();
+	if (player)
+	{
+		_newWP.location = player->GetActorLocation();
+		if (AController* _ctrl = player->GetController())
+			_newWP.rotation = _ctrl->GetControlRotation();
+	}
 
 	_save->savedWaypoints.Add(_newWP);
 	UGameplayStatics::SaveGameToSlot(_save, "DebugWaypoints", 0);
@@ -588,12 +593,15 @@ FString UDebugMenuWidget::DeleteAllWaypoint()
 
 #pragma region METHODES_SYSTEME_UTILITAIRES
 
-FString UDebugMenuWidget::GetFPS() { return FString::Printf(TEXT("%.0f FPS"), 1.0f / FApp::GetDeltaTime()); }
+FString UDebugMenuWidget::GetFPS()
+{
+	return FString::Printf(TEXT("%.0f FPS"), 1.0f / FApp::GetDeltaTime());
+}
 
 FString UDebugMenuWidget::GetMemoryUsage()
 {
-	FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
-	return FString::Printf(TEXT("%.0f MB"), (float)Stats.UsedPhysical / (1024.f * 1024.f));
+	FPlatformMemoryStats _stats = FPlatformMemory::GetStats();
+	return FString::Printf(TEXT("%.0f MB"), (float)_stats.UsedPhysical / (1024.f * 1024.f));
 }
 
 /**
@@ -621,8 +629,8 @@ FString UDebugMenuWidget::NoClip()
 			_pc->Possess(_newSpectator);
 			_newSpectator->EnableInput(_pc);
 
-			UDebugMenuItem* _item = rootMenu->GetItemByName("Waypoints");
-			if (_item) _item->CanBeActive = false;
+			if (UDebugMenuItem* _item = rootMenu->GetItemByName("Waypoints"))
+				_item->CanBeActive = false;
 			return "NoClip ON";
 		}
 	}
@@ -632,16 +640,14 @@ FString UDebugMenuWidget::NoClip()
 		_currentSpectator->RemoveMapping();
 		_pc->Possess(player);
 		player->AddMapping();
-		// player->RestoreDefaultInputs();
 		_currentSpectator->Destroy();
 
-		UDebugMenuItem* _item = rootMenu->GetItemByName("Waypoints");
-		if (_item) _item->CanBeActive = true;
+		if (UDebugMenuItem* _item = rootMenu->GetItemByName("Waypoints"))
+			_item->CanBeActive = true;
 		return "NoClip OFF";
 	}
 	return "Failed";
 }
-
 
 FString UDebugMenuWidget::GetCameraFov()
 {
@@ -652,9 +658,6 @@ FString UDebugMenuWidget::GetCameraFov()
 
 #pragma region NAVIGATION_CORE
 
-/**
- * @summary Gère l'appui sur la touche de validation.
- */
 void UDebugMenuWidget::SelectItem()
 {
 	if (menuStack.Num() == 0) return;
@@ -675,20 +678,15 @@ void UDebugMenuWidget::SelectItem()
 	else
 	{
 		FName _actionKey = (_selected->ActionLabels.Num() > 0)
-			                   ? FName(*(_selected->ActionTag.ToString() + "_" + FString::FromInt(
-				                   _selected->CurrentActionIndex)))
-			                   : _selected->ActionTag;
-		
+			? FName(*(_selected->ActionTag.ToString() + "_" + FString::FromInt(_selected->CurrentActionIndex)))
+			: _selected->ActionTag;
+
 		if (infoHandlers.Contains(_actionKey))
 		{
 			FString _newValue = infoHandlers[_actionKey].delegate.Execute();
-
-			if (!_newValue.IsEmpty())
+			if (!_newValue.IsEmpty() && hudOwner)
 			{
-				if (hudOwner)
-				{
-					hudOwner->GetInGameWidget()->GetNotificationListWidget()->AddNotification(_newValue);
-				}
+				hudOwner->GetInGameWidget()->GetNotificationListWidget()->AddNotification(_newValue);
 			}
 		}
 	}
@@ -719,10 +717,8 @@ void UDebugMenuWidget::GoBack()
 
 void UDebugMenuWidget::MoveSelection(int32 _dir)
 {
-	// 1. Vérifie si la pile est vide
 	if (menuStack.Num() == 0) return;
 
-	// 2. Vérifie si le pointeur du menu actuel est valide 
 	UDebugMenuItem* _currentMenu = menuStack.Last();
 	if (!IsValid(_currentMenu))
 	{
@@ -730,19 +726,15 @@ void UDebugMenuWidget::MoveSelection(int32 _dir)
 		return;
 	}
 
-	// Calcul de la nouvelle sélection
 	int _num = _currentMenu->SubItems.Num();
 	if (_num > 0)
 	{
 		currentIndex = (currentIndex + _dir + _num) % _num;
 	}
-	
+
 	UpdateMenuVisuals();
 }
 
-/**
- * @summary Permet de changer d'action sur une ligne (ex: Gauche/Droite pour choisir TP ou Suppr).
- */
 void UDebugMenuWidget::MoveActionSelection(int _direction)
 {
 	if (menuStack.Num() == 0) return;
@@ -763,14 +755,20 @@ void UDebugMenuWidget::MoveActionSelection(int _direction)
 #pragma region RENDU_VISUEL
 
 /**
- * @summary Recyle les widgets de ligne et les affiche selon le scroll.
+ * @summary Recycle les widgets de ligne et les affiche selon le scroll.
  */
 void UDebugMenuWidget::UpdateMenuVisuals()
 {
 	if (!MenuConainer_show || !MenuConainer_Hidden) return;
 
+	// Remettre les lignes actives dans le pool en les réinitialisant proprement
 	TArray<UWidget*> _children = MenuConainer_show->GetAllChildren();
-	for (UWidget* _widget : _children) MenuConainer_Hidden->AddChild(_widget);
+	for (UWidget* _widget : _children)
+	{
+		if (UMenuLineWidget* _line = Cast<UMenuLineWidget>(_widget))
+			_line->ResetWidget();
+		MenuConainer_Hidden->AddChild(_widget);
+	}
 	MenuConainer_show->ClearChildren();
 
 	TArray<UDebugMenuItem*> _visible = GetVisibleMenuItems();
@@ -778,8 +776,8 @@ void UDebugMenuWidget::UpdateMenuVisuals()
 	for (int _i = 0; _i < _count; _i++)
 	{
 		UMenuLineWidget* _line = (MenuConainer_Hidden->GetChildrenCount() > 0)
-			                         ? Cast<UMenuLineWidget>(MenuConainer_Hidden->GetChildAt(0))
-			                         : CreateWidget<UMenuLineWidget>(this, menuLineClass);
+			? Cast<UMenuLineWidget>(MenuConainer_Hidden->GetChildAt(0))
+			: CreateWidget<UMenuLineWidget>(this, menuLineClass);
 
 		if (_line)
 		{
@@ -789,9 +787,6 @@ void UDebugMenuWidget::UpdateMenuVisuals()
 	}
 }
 
-/**
- * @summary Détermine quels items du menu actuel doivent être rendus (système de scroll).
- */
 TArray<UDebugMenuItem*> UDebugMenuWidget::GetVisibleMenuItems()
 {
 	TArray<UDebugMenuItem*> _result;
@@ -799,7 +794,7 @@ TArray<UDebugMenuItem*> UDebugMenuWidget::GetVisibleMenuItems()
 
 	TArray<UDebugMenuItem*>& _all = menuStack.Last()->SubItems;
 
-	if (currentIndex >= firstVisibleIndex + maxVisibleItems) 
+	if (currentIndex >= firstVisibleIndex + maxVisibleItems)
 		firstVisibleIndex = currentIndex - maxVisibleItems + 1;
 	else if (currentIndex < firstVisibleIndex)
 		firstVisibleIndex = currentIndex;
@@ -814,14 +809,21 @@ TArray<UDebugMenuItem*> UDebugMenuWidget::GetVisibleMenuItems()
 }
 
 /**
- * @summary Mis à jour par le timer pour actualiser les textes dynamiques (DisplayOnly).
+ * @summary Mis à jour par timer pour actualiser les textes dynamiques (DisplayOnly).
  */
 void UDebugMenuWidget::RefreshVisibleMenu()
 {
 	if (menuStack.Num() == 0) return;
 
+	TArray<UDebugMenuItem*>& _currentItems = menuStack.Last()->SubItems;
+	
+	bool _hasDisplayOnly = _currentItems.ContainsByPredicate(
+		[](UDebugMenuItem* _item) { return _item && _item->Type == EMenuItemType::DisplayOnly; });
+
+	if (!_hasDisplayOnly) return;
+
 	bool _needsVisualUpdate = false;
-	for (UDebugMenuItem* _item : menuStack.Last()->SubItems)
+	for (UDebugMenuItem* _item : _currentItems)
 	{
 		if (_item->Type == EMenuItemType::DisplayOnly && infoHandlers.Contains(_item->ActionTag))
 		{
@@ -833,14 +835,13 @@ void UDebugMenuWidget::RefreshVisibleMenu()
 			}
 		}
 	}
+
 	if (_needsVisualUpdate) UpdateMenuVisuals();
 }
 
-/**
- * @summary Utilitaire pour créer un objet de menu et l'ajouter à une liste cible.
- */
-UDebugMenuItem* UDebugMenuWidget::AddItemToMenu(TArray<UDebugMenuItem*>& _target, FString _label, EMenuItemType _type,
-                                                FName _tag, TArray<FString> _actions, bool _active)
+UDebugMenuItem* UDebugMenuWidget::AddItemToMenu(TArray<UDebugMenuItem*>& _target, FString _label,
+                                                EMenuItemType _type, FName _tag,
+                                                TArray<FString> _actions, bool _active)
 {
 	UDebugMenuItem* _item = NewObject<UDebugMenuItem>(this);
 	_item->Label = _label;

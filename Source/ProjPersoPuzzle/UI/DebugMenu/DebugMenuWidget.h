@@ -11,7 +11,7 @@
 #include "DebugMenuWidget.generated.h"
 
 /**
- * @summary Délégué renvoyant une String. Utilisé pour récupérer dynamiquement 
+ * @summary Délégué renvoyant une String. Utilisé pour récupérer dynamiquement
  * les infos de debug (FPS, Position, etc.) à chaque rafraîchissement.
  */
 DECLARE_DELEGATE_RetVal(FString, FGetDebugInfoDelegate);
@@ -57,7 +57,7 @@ class PROJPERSOPUZZLE_API UDebugMenuWidget : public UUserWidget
 protected:
 
 	UPROPERTY() AInGameHUD* hudOwner = nullptr;
-	
+
 #pragma region CYCLE_DE_VIE
 
 	virtual void NativeConstruct() override;
@@ -177,10 +177,11 @@ protected:
 	void InitNodeMenu();
 
 	/**
-	 * @summary Construit les actions (TP, Info) pour un Node spécifique.
+	 * @summary Construit les actions (TP, Info, Debug) pour un Node spécifique.
+	 * Utilise TWeakObjectPtr pour éviter les crashes si le node est détruit.
 	 */
-	void BuildNodeMenu(ANode* Node, UDebugMenuItem* TargetMenuItem);
-	void BuildActivatorListMenu(ANode* Node, UDebugMenuItem* TargetMenuItem);
+	void BuildNodeMenu(ANode* _node, UDebugMenuItem* _targetMenuItem);
+	void BuildActivatorListMenu(ANode* _node, UDebugMenuItem* _targetMenuItem);
 
 #pragma endregion
 
@@ -206,12 +207,24 @@ protected:
 #pragma region GESTION_WAYPOINTS
 
 	void RefreshWaypointMenu();
-	void DeleteWaypoint(int Index);
+	void DeleteWaypoint(int _index);
 
 	UFUNCTION()
 	FString DeleteAllWaypoint();
 	UFUNCTION()
 	void SaveCurrentLocation(FString _customName);
+
+	/**
+	 * @summary Charge le save des waypoints depuis le disque.
+	 * Retourne nullptr si aucune sauvegarde n'existe.
+	 */
+	UDebugMenuSaveGame* LoadWaypointSave() const;
+
+	/**
+	 * @summary Charge ou crée le save des waypoints.
+	 * Crée un nouvel objet de sauvegarde si aucun n'existe sur le disque.
+	 */
+	UDebugMenuSaveGame* LoadOrCreateWaypointSave() const;
 
 #pragma endregion
 
@@ -247,12 +260,12 @@ protected:
 	UPROPERTY()
 	FTimerHandle resetValueTimerHandle;
 	UPROPERTY()
-	UNodesWorldSubsystem* _subNode = nullptr;
-	
+	UNodesWorldSubsystem* subNode = nullptr;
+
 #pragma endregion
 
-	UFUNCTION() void ResetDynamicValue(UDebugMenuItem* Item);
-	
+	UFUNCTION() void ResetDynamicValue(UDebugMenuItem* _item);
+
 
 public:
 #pragma region API_NAVIGATION_BLUEPRINT
@@ -279,7 +292,5 @@ public:
 
 #pragma endregion
 
-	void SetHudOwner(AInGameHUD* _hudOwner) {hudOwner = _hudOwner;}
+	void SetHudOwner(AInGameHUD* _hudOwner) { hudOwner = _hudOwner; }
 };
-
-
