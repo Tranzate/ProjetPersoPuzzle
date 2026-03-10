@@ -29,6 +29,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Logic Settings")
 	int32 requiredActivations = 1;
 
+	UPROPERTY(VisibleAnywhere, Category = "Logic Settings")
+	int32 currentActivations = 0;
+
 protected:
 	UPROPERTY(EditInstanceOnly, Category = "Logic Output")
 	TArray<AActivableActor*> targets;
@@ -43,8 +46,6 @@ protected:
 	virtual void ShowDebug() override;
 
 private:
-	UPROPERTY(EditAnywhere, Category = "Logic Settings")
-	int32 currentActivations = 0;
 	bool lastOutputStatus = false;
 
 	void EvaluateLogic(AActor* _other);

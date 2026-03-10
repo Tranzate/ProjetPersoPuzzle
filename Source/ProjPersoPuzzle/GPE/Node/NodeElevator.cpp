@@ -43,7 +43,6 @@ FRotator ANodeElevator::ComputeCallButtonRotation() const
 	return (targetedElevator->GetActorQuat() * FQuat(callButtonRotation)).Rotator();
 }
 
-
 void ANodeElevator::BeginPlay()
 {
 	Super::BeginPlay();
@@ -78,7 +77,6 @@ void ANodeElevator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorld()->GetTimerManager().ClearTimer(queueTimerHandle);
 	Super::EndPlay(EndPlayReason);
 }
-
 
 void ANodeElevator::SpawnFloorDoors()
 {
@@ -133,9 +131,9 @@ void ANodeElevator::DestroyFloorDoors()
 
 void ANodeElevator::SpawnCallButtons()
 {
-	if (!buttonClass)        { UE_LOG(LogTemp, Error,   TEXT("[NodeElevator] buttonClass non assignee !")); return; }
-	if (!targetedElevator)   { UE_LOG(LogTemp, Error,   TEXT("[NodeElevator] targetedElevator non assigne !")); return; }
-	if (floorData.Num() == 0){ UE_LOG(LogTemp, Warning, TEXT("[NodeElevator] floorData est vide.")); return; }
+	if (!buttonClass) return; 
+	if (!targetedElevator) return; 
+	if (floorData.Num() == 0) return;
 
 	DestroyCallButtons();
 
@@ -169,10 +167,8 @@ void ANodeElevator::SpawnCallButtons()
 			_btn->UpdateText(_floor.Key);
 #if WITH_EDITOR
 			_btn->SetFolderPath(_btnFolder);
-			_btn->SetActorLabel(FString::Printf(TEXT("BoutonCall_%s"), *_floor.Key));
 #endif
 			callButtons.Add(_floor.Key, _btn);
-			UE_LOG(LogTemp, Log, TEXT("[NodeElevator] Call button '%s' spawne."), *_floor.Key);
 		}
 	}
 }
@@ -183,25 +179,19 @@ void ANodeElevator::DestroyCallButtons()
 	for (TPair<FString, AElevatorButton*>& _pair : callButtons)
 		if (IsValid(_pair.Value)) { _pair.Value->Destroy(); _count++; }
 	callButtons.Empty();
-	UE_LOG(LogTemp, Log, TEXT("[NodeElevator] %d call button(s) supprime(s)."), _count);
 }
 
 
 void ANodeElevator::MoveToTestFloor()
 {
 	if (!targetedElevator)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[NodeElevator] MoveToTestFloor: targetedElevator non assigne !"));
 		return;
-	}
+	
 	if (testFloorName.IsEmpty())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[NodeElevator] MoveToTestFloor: testFloorName est vide. Entre un nom d'etage."));
 		return;
-	}
+	
 	if (!floorData.Contains(testFloorName))
 	{
-		UE_LOG(LogTemp, Error, TEXT("[NodeElevator] etage '%s' introuvable. Etages disponibles :"), *testFloorName);
 		for (const TPair<FString, float>& _p : floorData)
 			UE_LOG(LogTemp, Warning, TEXT("  -> '%s' = %.1f"), *_p.Key, _p.Value);
 		return;
@@ -211,8 +201,7 @@ void ANodeElevator::MoveToTestFloor()
 	FVector _newPos      = targetedElevator->GetActorLocation();
 	_newPos.Z            = _targetZ;
 	targetedElevator->SetActorLocation(_newPos);
-
-	UE_LOG(LogTemp, Log, TEXT("[NodeElevator] Ascenseur -> '%s' (Z=%.1f)"), *testFloorName, _targetZ);
+	
 }
 
 #if WITH_EDITOR
@@ -278,7 +267,6 @@ void ANodeElevator::GenerateButtons()
 	}
 }
 
-
 void ANodeElevator::OpenAllDoorsAtFloor(FString _floorName)
 {
 	if (targetedElevator) targetedElevator->OpenDoor();
@@ -292,7 +280,6 @@ void ANodeElevator::CloseAllDoorsAtFloor(FString _floorName)
 	if (floorDoors.Contains(_floorName) && floorDoors[_floorName])
 		floorDoors[_floorName]->OnDeActivate(this);
 }
-
 
 void ANodeElevator::NotifyArrival()
 {
@@ -324,6 +311,12 @@ void ANodeElevator::ProcessNextFloor()
 		{
 			GetWorld()->GetTimerManager().SetTimer(nextFloorTimerHandle, [this]()
 			{
+				if (floorQueue.Num() > 0)
+				{
+					isProcessingQueue = true;
+					ProcessNextFloor();
+					return;
+				}
 				CloseAllDoorsAtFloor(currentFloorName);
 			}, targetedElevator->GetWaitTime(), false);
 		}
@@ -362,8 +355,9 @@ void ANodeElevator::ProcessNextFloor()
 
 void ANodeElevator::OnFloorSelected(FString _floorName)
 {
-	if (!targetedElevator || !floorData.Contains(_floorName)) return;
-	if (floorQueue.Contains(_floorName)) return;
+	if (!targetedElevator) return; 
+	if (!floorData.Contains(_floorName))return; 
+	if (floorQueue.Contains(_floorName)) return; 
 
 	const float _targetHeight  = floorData[_floorName];
 	const float _currentHeight = targetedElevator->GetActorLocation().Z;
@@ -376,8 +370,13 @@ void ANodeElevator::OnFloorSelected(FString _floorName)
 	}
 
 	floorQueue.Add(_floorName);
+
 	if (!isProcessingQueue)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(nextFloorTimerHandle);
+		isProcessingQueue = true;
 		ProcessNextFloor();
+	}
 }
 
 void ANodeElevator::CallToHeight(float _height)
@@ -389,6 +388,8 @@ void ANodeElevator::CallToHeight(float _height)
 
 void ANodeElevator::MoveElevator(bool _targetOpening)
 {
+
+
 	if (!_targetOpening && isCallPending)
 	{
 		if (!targetedElevator) return;

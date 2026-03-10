@@ -25,7 +25,7 @@ public:
 	ASpawnNode();
 	virtual void Tick(float DeltaTime) override;
 
-protected:
+public:
 	UPROPERTY(EditAnywhere, Category = "Spawn Settings")
 	TArray<FSpawnParameters> toSpawn;
 

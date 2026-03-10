@@ -4,6 +4,9 @@
 #include "UI/InGameHUD.h"
 #include "UI/InGameWidget.h"
 #include "GPE/Node/Node.h"
+#include "GPE/Node/NodeElevator.h"
+#include "GPE/Node/LogicNode.h"
+#include "GPE/Node/SpawnNode.h"
 #include "SubSystem/NodesWorldSubsystem.h"
 #include "MenuLineWidget.h"
 #include "UI/NotificationListWidget.h"
@@ -249,7 +252,7 @@ void UDebugMenuWidget::InitNodeMenu()
 {
 	nodeSubMenu = AddItemToMenu(rootMenu->SubItems, "Nodes", EMenuItemType::SubMenu, "NODE_TAG");
 
-	// Recherche de Node par ID
+	// Recherche par ID
 	infoHandlers.Add("NODE_SEARCH", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
 		TArray<UObject*> _pool;
@@ -264,9 +267,7 @@ void UDebugMenuWidget::InitNodeMenu()
 		TFunction<void(UObject*, UDebugMenuItem*)> _nodeBuilder = [this](UObject* _obj, UDebugMenuItem* _resultMenuItem)
 		{
 			if (objectToMenuMap.Contains(_obj))
-			{
 				_resultMenuItem->SubItems = objectToMenuMap[_obj]->SubItems;
-			}
 		};
 
 		StartSearch(_pool, _nodeFilter, _nodeBuilder);
@@ -300,25 +301,62 @@ void UDebugMenuWidget::InitNodeMenu()
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug ]",       EMenuItemType::Action, "NODE_SHOWDEBUG");
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug ]",       EMenuItemType::Action, "NODE_HIDEDEBUG");
 
-	if (subNode)
+	if (!subNode) return;
+
+	// Sous-menus par type
+	UDebugMenuItem* _logicMenu    = AddItemToMenu(nodeSubMenu->SubItems, ">> Logic Nodes <<",    EMenuItemType::SubMenu, "NODE_CAT_LOGIC");
+	UDebugMenuItem* _spawnMenu    = AddItemToMenu(nodeSubMenu->SubItems, ">> Spawn Nodes <<",    EMenuItemType::SubMenu, "NODE_CAT_SPAWN");
+	UDebugMenuItem* _elevatorMenu = AddItemToMenu(nodeSubMenu->SubItems, ">> Elevator Nodes <<", EMenuItemType::SubMenu, "NODE_CAT_ELEVATOR");
+	UDebugMenuItem* _otherMenu    = AddItemToMenu(nodeSubMenu->SubItems, ">> Other Nodes <<",    EMenuItemType::SubMenu, "NODE_CAT_OTHER");
+
+	for (ANode* _node : subNode->GetAllNodes())
 	{
-		for (ANode* _node : subNode->GetAllNodes())
+		if (!_node) continue;
+
+		FName _nodeTag = FName(*FString::Printf(TEXT("NODE_SUB_%p"), _node));
+
+		// Choisir le bon sous-menu et les options selon le type
+		UDebugMenuItem* _parentMenu = nullptr;
+		FNodeMenuOptions _opts;
+
+		if (Cast<ANodeElevator>(_node))
 		{
-			if (!_node) continue;
-			FName _nodeTag = FName(*FString::Printf(TEXT("NODE_SUB_%p"), _node));
-			UDebugMenuItem* _indivMenu = AddItemToMenu(nodeSubMenu->SubItems, _node->GetNameID(),
-			                                           EMenuItemType::SubMenu, _nodeTag);
-			objectToMenuMap.Add(_node, _indivMenu);
-			BuildNodeMenu(_node, _indivMenu);
+			_parentMenu = _elevatorMenu;
+			_opts.showForceActivate   = false;
+			_opts.showForceDeActivate = false;
+			_opts.showActivatorList = false;
 		}
+		else if (Cast<ALogicNode>(_node))
+		{
+			_parentMenu = _logicMenu;
+		}
+		else if (Cast<ASpawnNode>(_node))
+		{
+			_parentMenu = _spawnMenu;
+		}
+		else
+		{
+			_parentMenu = _otherMenu;
+		}
+
+		UDebugMenuItem* _indivMenu = AddItemToMenu(_parentMenu->SubItems, _node->GetNameID(),
+		                                           EMenuItemType::SubMenu, _nodeTag);
+		objectToMenuMap.Add(_node, _indivMenu);
+		BuildNodeMenu(_node, _indivMenu, _opts);
 	}
+
+	// Masque les catégories vides
+	_logicMenu->CanBeActive    = _logicMenu->SubItems.Num() > 0;
+	_spawnMenu->CanBeActive    = _spawnMenu->SubItems.Num() > 0;
+	_elevatorMenu->CanBeActive = _elevatorMenu->SubItems.Num() > 0;
+	_otherMenu->CanBeActive    = _otherMenu->SubItems.Num() > 0;
 }
 
 /**
  * @summary Définit les actions possibles pour un Node (TP, Info, Debug, ForceActivate...).
  *      pour éviter les crashes si l'objet est détruit avant l'appel du delegate.
  */
-void UDebugMenuWidget::BuildNodeMenu(ANode* _node, UDebugMenuItem* _targetMenuItem)
+void UDebugMenuWidget::BuildNodeMenu(ANode* _node, UDebugMenuItem* _targetMenuItem, FNodeMenuOptions _opts)
 {
 	if (!_node || !_targetMenuItem) return;
 
@@ -401,19 +439,44 @@ void UDebugMenuWidget::BuildNodeMenu(ANode* _node, UDebugMenuItem* _targetMenuIt
 		return FString("Forced To DeActivate");
 	}));
 
-	// Sous-menu liste des activateurs
-	FName _activatorSubMenuTag = FName(*FString::Printf(TEXT("NODE_ACT_LIST_%p"), _node));
-	UDebugMenuItem* _activatorListMenu = AddItemToMenu(_targetMenuItem->SubItems, ">> Activators List <<",
-	                                                   EMenuItemType::SubMenu, _activatorSubMenuTag);
-	BuildActivatorListMenu(_node, _activatorListMenu);
+	if (_opts.showActivatorList)
+	{
+		FName _activatorSubMenuTag = FName(*FString::Printf(TEXT("NODE_ACT_LIST_%p"), _node));
+		UDebugMenuItem* _activatorListMenu = AddItemToMenu(_targetMenuItem->SubItems, ">> Activators List <<",
+		                                                   EMenuItemType::SubMenu, _activatorSubMenuTag);
+		BuildActivatorListMenu(_node, _activatorListMenu);
+	}
 
-	AddItemToMenu(_targetMenuItem->SubItems, "Status",             EMenuItemType::DisplayOnly, _infoTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Teleport",           EMenuItemType::Action,      _tpTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Toggle Debug",       EMenuItemType::Action,      _debugTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Toggle Names",       EMenuItemType::Action,      _debugNameTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Select in Outliner", EMenuItemType::Action,      _selectTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Force Activate",     EMenuItemType::Action,      _forceActivateTag);
-	AddItemToMenu(_targetMenuItem->SubItems, "Force DeActivate",   EMenuItemType::Action,      _forceDeActTag);
+	if (_opts.showStatus)          AddItemToMenu(_targetMenuItem->SubItems, "Status",             EMenuItemType::DisplayOnly, _infoTag);
+	if (_opts.showTeleport)        AddItemToMenu(_targetMenuItem->SubItems, "Teleport",           EMenuItemType::Action,      _tpTag);
+	if (_opts.showToggleDebug)     AddItemToMenu(_targetMenuItem->SubItems, "Toggle Debug",       EMenuItemType::Action,      _debugTag);
+	if (_opts.showToggleNames)     AddItemToMenu(_targetMenuItem->SubItems, "Toggle Names",       EMenuItemType::Action,      _debugNameTag);
+	if (_opts.showSelectOutliner)  AddItemToMenu(_targetMenuItem->SubItems, "Select in Outliner", EMenuItemType::Action,      _selectTag);
+	if (_opts.showForceActivate)   AddItemToMenu(_targetMenuItem->SubItems, "Force Activate",     EMenuItemType::Action,      _forceActivateTag);
+	if (_opts.showForceDeActivate) AddItemToMenu(_targetMenuItem->SubItems, "Force DeActivate",   EMenuItemType::Action,      _forceDeActTag);
+
+	// Sous-menu spécifique selon le type
+	if (ANodeElevator* _nodeElev = Cast<ANodeElevator>(_node))
+	{
+		UDebugMenuItem* _elevMenu = AddItemToMenu(_targetMenuItem->SubItems,
+			">> Elevator <<", EMenuItemType::SubMenu,
+			FName(*FString::Printf(TEXT("NODE_ELEV_SUB_%p"), _node)));
+		BuildNodeElevatorMenu(_nodeElev, _elevMenu);
+	}
+	else if (ALogicNode* _nodeLogic = Cast<ALogicNode>(_node))
+	{
+		UDebugMenuItem* _logicMenu = AddItemToMenu(_targetMenuItem->SubItems,
+			">> Logic <<", EMenuItemType::SubMenu,
+			FName(*FString::Printf(TEXT("NODE_LOGIC_SUB_%p"), _node)));
+		BuildLogicNodeMenu(_nodeLogic, _logicMenu);
+	}
+	else if (ASpawnNode* _nodeSpawn = Cast<ASpawnNode>(_node))
+	{
+		UDebugMenuItem* _spawnMenu = AddItemToMenu(_targetMenuItem->SubItems,
+			">> Spawn <<", EMenuItemType::SubMenu,
+			FName(*FString::Printf(TEXT("NODE_SPAWN_SUB_%p"), _node)));
+		BuildSpawnNodeMenu(_nodeSpawn, _spawnMenu);
+	}
 }
 
 /**
@@ -471,6 +534,100 @@ void UDebugMenuWidget::BuildActivatorListMenu(ANode* _node, UDebugMenuItem* _tar
 		AddItemToMenu(_actorEntry->SubItems, "Teleport to Actor",  EMenuItemType::Action, _actTpTag);
 		AddItemToMenu(_actorEntry->SubItems, "Select in Outliner", EMenuItemType::Action, _actSelectTag);
 	}
+}
+
+/**
+ * @summary Sous-menu dédié au LogicNode (mode logique, activations, état).
+ */
+void UDebugMenuWidget::BuildLogicNodeMenu(ALogicNode* _node, UDebugMenuItem* _targetMenuItem)
+{
+	if (!_node || !_targetMenuItem) return;
+
+	TWeakObjectPtr<ALogicNode> _weak = _node;
+	FString _key = FString::Printf(TEXT("%p"), _node);
+
+	FName _statusTag = FName(*(TEXT("LOGIC_STATUS_") + _key));
+	infoHandlers.FindOrAdd(_statusTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weak]()
+	{
+		if (!_weak.IsValid()) return FString("Destroyed");
+		const UEnum* _enum = StaticEnum<ELogicMode>();
+		FString _modeName = _enum ? _enum->GetNameStringByValue((int64)_weak->logicMode) : TEXT("?");
+		return FString::Printf(TEXT("Mode: %s | Activations: %d / %d"),
+			*_modeName, _weak->currentActivations, _weak->requiredActivations);
+	}));
+
+	AddItemToMenu(_targetMenuItem->SubItems, "Status", EMenuItemType::DisplayOnly, _statusTag);
+}
+
+/**
+ * @summary Sous-menu dédié au SpawnNode (liste des acteurs spawnés, destroy).
+ */
+void UDebugMenuWidget::BuildSpawnNodeMenu(ASpawnNode* _node, UDebugMenuItem* _targetMenuItem)
+{
+	if (!_node || !_targetMenuItem) return;
+
+	TWeakObjectPtr<ASpawnNode> _weak = _node;
+	FString _key = FString::Printf(TEXT("%p"), _node);
+
+	FName _statusTag = FName(*(TEXT("SPAWN_STATUS_") + _key));
+	infoHandlers.FindOrAdd(_statusTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weak]()
+	{
+		if (!_weak.IsValid()) return FString("Destroyed");
+		int32 _alive = 0;
+		for (const TWeakObjectPtr<AActor>& _a : _weak->spawnedActors)
+			if (_a.IsValid()) _alive++;
+		return FString::Printf(TEXT("Spawned: %d alive / %d total | DestroyOnDeAct: %s"),
+			_alive, _weak->toSpawn.Num(),
+			_weak->destroyActorWhenDeActivated ? TEXT("Yes") : TEXT("No"));
+	}));
+
+	AddItemToMenu(_targetMenuItem->SubItems, "Status", EMenuItemType::DisplayOnly, _statusTag);
+}
+ /* Affiche l'étage actuel, la queue, et permet d'appeler l'ascenseur à chaque étage.
+ */
+void UDebugMenuWidget::BuildNodeElevatorMenu(ANodeElevator* _node, UDebugMenuItem* _targetMenuItem)
+{
+	if (!_node || !_targetMenuItem) return;
+
+	TWeakObjectPtr<ANodeElevator> _weak = _node;
+	FString _key = FString::Printf(TEXT("%p"), _node);
+
+	// ── Status ──────────────────────────────────────────────────
+	FName _statusTag = FName(*(TEXT("ELEV_STATUS_") + _key));
+	infoHandlers.FindOrAdd(_statusTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weak]()
+	{
+		if (!_weak.IsValid()) return FString("Destroyed");
+		return FString::Printf(TEXT("Etage: %s | Speed: %.0f | Wait: %.1fs"),
+			*_weak->GetCurrentFloorName(),
+			_weak->moveSpeed,
+			_weak->waitTimeAtFloor);
+	}));
+	AddItemToMenu(_targetMenuItem->SubItems, "Status", EMenuItemType::DisplayOnly, _statusTag);
+
+	// ── Appel à chaque étage ─────────────────────────────────────
+	UDebugMenuItem* _callMenu = AddItemToMenu(_targetMenuItem->SubItems,
+		">> Call to Floor <<", EMenuItemType::SubMenu,
+		FName(*(TEXT("ELEV_CALL_SUB_") + _key)));
+
+	for (const TPair<FString, float>& _floor : _node->floorData)
+	{
+		FName _callTag = FName(*(TEXT("ELEV_CALL_") + _key + TEXT("_") + _floor.Key));
+		FString _floorName = _floor.Key;
+
+		infoHandlers.FindOrAdd(_callTag) = FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([_weak, _floorName]()
+		{
+			if (!_weak.IsValid()) return FString("Destroyed");
+			_weak->OnFloorSelected(_floorName);
+			return FString::Printf(TEXT("-> %s"), *_floorName);
+		}));
+
+		AddItemToMenu(_callMenu->SubItems,
+			FString::Printf(TEXT("%s  (Z=%.0f)"), *_floor.Key, _floor.Value),
+			EMenuItemType::Action, _callTag);
+	}
+
+	if (_node->floorData.Num() == 0)
+		AddItemToMenu(_callMenu->SubItems, "No floors defined", EMenuItemType::DisplayOnly, NAME_None);
 }
 
 #pragma endregion

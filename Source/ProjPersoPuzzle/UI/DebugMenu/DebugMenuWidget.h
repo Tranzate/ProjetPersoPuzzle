@@ -22,6 +22,25 @@ class APuzzleCharacter;
 class UMenuLineWidget;
 class UNodesWorldSubsystem;
 class AInGameHUD;
+class ANodeElevator;
+class ALogicNode;
+class ASpawnNode;
+
+
+/**
+ * @summary Options pour contrôler quels items sont affichés dans BuildNodeMenu.
+ */
+struct FNodeMenuOptions
+{
+	bool showStatus          = true;
+	bool showTeleport        = true;
+	bool showToggleDebug     = true;
+	bool showToggleNames     = true;
+	bool showSelectOutliner  = true;
+	bool showForceActivate   = true;
+	bool showForceDeActivate = true;
+	bool showActivatorList   = true;
+};
 
 /**
  * @summary Structure liant un délégué d'exécution à une description.
@@ -180,8 +199,15 @@ protected:
 	 * @summary Construit les actions (TP, Info, Debug) pour un Node spécifique.
 	 * Utilise TWeakObjectPtr pour éviter les crashes si le node est détruit.
 	 */
-	void BuildNodeMenu(ANode* _node, UDebugMenuItem* _targetMenuItem);
+	void BuildNodeMenu(ANode* _node, UDebugMenuItem* _targetMenuItem, FNodeMenuOptions _opts = FNodeMenuOptions{});
 	void BuildActivatorListMenu(ANode* _node, UDebugMenuItem* _targetMenuItem);
+
+	/**
+	 * @summary Sous-menu spécifique au NodeElevator (étages, appel, état).
+	 */
+	void BuildNodeElevatorMenu(ANodeElevator* _node, UDebugMenuItem* _targetMenuItem);
+	void BuildLogicNodeMenu(ALogicNode* _node, UDebugMenuItem* _targetMenuItem);
+	void BuildSpawnNodeMenu(ASpawnNode* _node, UDebugMenuItem* _targetMenuItem);
 
 #pragma endregion
 
