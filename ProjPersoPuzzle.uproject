@@ -10,8 +10,7 @@
 			"LoadingPhase": "Default",
 			"AdditionalDependencies": [
 				"Engine",
-				"UMG",
-				"Blutility"
+				"UMG"
 			]
 		}
 	],
@@ -20,7 +19,8 @@
 			"Name": "ModelingToolsEditorMode",
 			"Enabled": true,
 			"TargetAllowList": [
-				"Editor"
+				"Editor",
+				"Blutility"
 			]
 		}
 	]
