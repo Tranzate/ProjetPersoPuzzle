@@ -38,7 +38,7 @@ public:
 	void CloseDoor();
 	void OpenDoor();
 
-	FORCEINLINE float GetWaitTime() const;
+	float GetWaitTime() const;
 	void NotifyArrival();
 	
 	void Configure(float _speed, EEasingFamily _family, EEasingDirection _dir)
