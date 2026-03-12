@@ -22,14 +22,6 @@ void UDebugMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	// Récupération sécurisée du joueur local
-	player = Cast<APuzzleCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
-	if (player)
-	{
-		playerCamera = player->GetPlayerCamera();
-		playerMovement = player->GetCharacterMovement();
-	}
-
 	// Construction de l'arborescence des données du menu
 	InitMenus();
 
@@ -196,6 +188,22 @@ void UDebugMenuWidget::InitSystemMenu()
 
 void UDebugMenuWidget::InitPlayerMenu()
 {
+	player = Cast<APuzzleCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+
+	if (!player) 
+	{
+		LOG("player introuvable, tentative de reconnexion dans 0.2s...");
+       
+		FTimerHandle RetryHandle;
+		GetWorld()->GetTimerManager().SetTimer(RetryHandle, this, &UDebugMenuWidget::InitPlayerMenu, 0.2f, false);
+		return;
+	}
+	else
+	{
+		playerCamera = player->GetPlayerCamera();
+		playerMovement = player->GetCharacterMovement();
+	}
+	
 	playerSubMenu = AddItemToMenu(rootMenu->SubItems, "Player", EMenuItemType::SubMenu, "PLAYER_TAG");
 
 	infoHandlers.Add("PL_LOC", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
@@ -250,8 +258,38 @@ void UDebugMenuWidget::InitWaypointMenu()
 
 void UDebugMenuWidget::InitNodeMenu()
 {
+	if (!rootMenu) return;
+	TArray<ANode*> _allNodes = TArray<ANode*>();
+	if (!subNode) 
+	{
+		LOG("Subsystem introuvable, tentative de reconnexion dans 0.2s...");
+       
+		FTimerHandle RetryHandle;
+		GetWorld()->GetTimerManager().SetTimer(RetryHandle, this, &UDebugMenuWidget::InitNodeMenu, 0.2f, false);
+		return;
+	}
+	else
+	{
+		_allNodes = subNode->GetAllNodes();
+		static float TimeOfFirstDetection = 0.0f;
+    
+		if (_allNodes.Num() == 0)
+		{
+			FTimerHandle RetryTimer;
+			GetWorld()->GetTimerManager().SetTimer(RetryTimer, this, &UDebugMenuWidget::InitNodeMenu, 0.2f, false);
+			return;
+		}
+		
+		if (TimeOfFirstDetection == 0.0f)
+		{
+			TimeOfFirstDetection = GetWorld()->GetTimeSeconds();
+			FTimerHandle WaitHandle;
+			GetWorld()->GetTimerManager().SetTimer(WaitHandle, this, &UDebugMenuWidget::InitNodeMenu, 0.3f, false);
+			return;
+		}
+	}
+	LOG(FString::Printf(TEXT("Construction du menu avec %d Nodes !"), _allNodes.Num()));
 	nodeSubMenu = AddItemToMenu(rootMenu->SubItems, "Nodes", EMenuItemType::SubMenu, "NODE_TAG");
-
 	// Recherche par ID
 	infoHandlers.Add("NODE_SEARCH", FHandlerMenuDebug(FGetDebugInfoDelegate::CreateLambda([this]()
 	{
@@ -300,8 +338,11 @@ void UDebugMenuWidget::InitNodeMenu()
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug Text ]",  EMenuItemType::Action, "NODE_SHOWDEBUGTEXT");
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Show Debug ]",       EMenuItemType::Action, "NODE_SHOWDEBUG");
 	AddItemToMenu(nodeSubMenu->SubItems, " [ Hide Debug ]",       EMenuItemType::Action, "NODE_HIDEDEBUG");
-
-	if (!subNode) return;
+	if (!subNode) 
+	{
+		LOG("ERREUR CRITIQUE : UNodesWorldSubsystem est INTROUVABLE !");
+		return;
+	}
 
 	// Sous-menus par type
 	UDebugMenuItem* _logicMenu    = AddItemToMenu(nodeSubMenu->SubItems, ">> Logic Nodes <<",    EMenuItemType::SubMenu, "NODE_CAT_LOGIC");
@@ -309,7 +350,7 @@ void UDebugMenuWidget::InitNodeMenu()
 	UDebugMenuItem* _elevatorMenu = AddItemToMenu(nodeSubMenu->SubItems, ">> Elevator Nodes <<", EMenuItemType::SubMenu, "NODE_CAT_ELEVATOR");
 	UDebugMenuItem* _otherMenu    = AddItemToMenu(nodeSubMenu->SubItems, ">> Other Nodes <<",    EMenuItemType::SubMenu, "NODE_CAT_OTHER");
 
-	for (ANode* _node : subNode->GetAllNodes())
+	for (ANode* _node : _allNodes)
 	{
 		if (!_node) continue;
 
@@ -341,6 +382,7 @@ void UDebugMenuWidget::InitNodeMenu()
 
 		UDebugMenuItem* _indivMenu = AddItemToMenu(_parentMenu->SubItems, _node->GetNameID(),
 		                                           EMenuItemType::SubMenu, _nodeTag);
+		
 		objectToMenuMap.Add(_node, _indivMenu);
 		BuildNodeMenu(_node, _indivMenu, _opts);
 	}
@@ -350,6 +392,7 @@ void UDebugMenuWidget::InitNodeMenu()
 	_spawnMenu->CanBeActive    = _spawnMenu->SubItems.Num() > 0;
 	_elevatorMenu->CanBeActive = _elevatorMenu->SubItems.Num() > 0;
 	_otherMenu->CanBeActive    = _otherMenu->SubItems.Num() > 0;
+	UpdateMenuVisuals();
 }
 
 /**
